@@ -53,7 +53,6 @@ skip = []
 remappings = ["solmate/=test/vendor/v4-core/lib/solmate/", "forge-std/=lib/forge-std/src/"]
 
 [rpc_endpoints]
-rhc_testnet = "https://rpc.testnet.chain.robinhood.com"
 arbitrum_sepolia = "https://sepolia-rollup.arbitrum.io/rpc"
 arbitrum_one = "https://arb1.arbitrum.io/rpc"
 

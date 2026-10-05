@@ -19,18 +19,25 @@ interface IPositionManager {
     function nextTokenId() external view returns (uint256);
 }
 
-/// The RHC testnet venue: canonical Uniswap v4 (addresses from Uniswap's sdk-core
-/// ROBINHOOD_ADDRESSES), the official TSLA Stock Token, and a hookless TSLA/testUSDG pool we
-/// create and fund. Shared by the deploy script and the fork test so both run the same code.
-library RHCVenue {
-    uint256 internal constant CHAIN_ID = 46630;
-    address internal constant POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
-    address internal constant POSITION_MANAGER = 0x58daec3116aae6D93017bAAea7749052E8a04fA7;
-    address internal constant STATE_VIEW = 0xF3334192D15450CdD385c8B70e03f9A6bD9E673b;
+interface IWETH {
+    function deposit() external payable;
+}
+
+/// The Arbitrum Sepolia venue: Uniswap's v4 deployment on 421614 (docs.uniswap.org deployments,
+/// each address read back with `cast code`), canonical WETH, Paxos USDG, and a hookless
+/// WETH/USDG pool we create and fund. Shared by the deploy script and the fork test so both run
+/// the same code.
+library ArbVenue {
+    uint256 internal constant CHAIN_ID = 421614;
+    address internal constant POOL_MANAGER = 0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317;
+    address internal constant POSITION_MANAGER = 0xAc631556d3d4019C95769033B5E719dD77124BAc;
+    address internal constant STATE_VIEW = 0x9D467FA9062b6e9B1a46E26007aD82db116c67cB;
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
-    address internal constant TSLA = 0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E;
-    /// Runtime code hash of the canonical PoolManager, equal on RHC testnet and mainnet.
-    bytes32 internal constant POOL_MANAGER_CODEHASH = 0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626;
+    address internal constant WETH = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
+    /// Paxos Global Dollar on Arbitrum Sepolia (faucet.paxos.com lists it), 6 decimals.
+    address internal constant USDG = 0xFFC95faa3d63Cde504a05B567C600B78C0b41892;
+    /// Runtime code hash of the PoolManager at POOL_MANAGER, read 2026-10-05 (`cast codehash`).
+    bytes32 internal constant POOL_MANAGER_CODEHASH = 0x790926015bb866adc59a6619aaddd47273949f6b3a4e4b43efc9eab8a9c93cdb;
     uint24 internal constant FEE = 3000;
     int24 internal constant TICK_SPACING = 60;
 
@@ -40,15 +47,15 @@ library RHCVenue {
 
     uint256 internal constant Q96 = 1 << 96;
 
-    function poolKey(address usdg, address stock) internal pure returns (PoolKey memory) {
-        (address c0, address c1) = usdg < stock ? (usdg, stock) : (stock, usdg);
+    function poolKey(address usdg, address asset) internal pure returns (PoolKey memory) {
+        (address c0, address c1) = usdg < asset ? (usdg, asset) : (asset, usdg);
         return PoolKey(Currency.wrap(c0), Currency.wrap(c1), FEE, TICK_SPACING, IHooks(address(0)));
     }
 
-    /// sqrt(currency1 / currency0) in Q64.96 for a price of `usdgPerStock` raw USDG per 1e18
-    /// raw stock (18-decimal Stock Tokens).
-    function sqrtPriceX96(PoolKey memory k, address usdg, uint256 usdgPerStock) internal pure returns (uint160) {
-        (uint256 a0, uint256 a1) = Currency.unwrap(k.currency0) == usdg ? (usdgPerStock, uint256(1e18)) : (uint256(1e18), usdgPerStock);
+    /// sqrt(currency1 / currency0) in Q64.96 for a price of `usdgPerAsset` raw USDG per 1e18
+    /// raw asset (an 18-decimal asset such as WETH).
+    function sqrtPriceX96(PoolKey memory k, address usdg, uint256 usdgPerAsset) internal pure returns (uint160) {
+        (uint256 a0, uint256 a1) = Currency.unwrap(k.currency0) == usdg ? (usdgPerAsset, uint256(1e18)) : (uint256(1e18), usdgPerAsset);
         return uint160(Math.sqrt(FullMath.mulDiv(a1, 1 << 192, a0)));
     }
 
@@ -70,7 +77,7 @@ library RHCVenue {
         return uint128(l);
     }
 
-    /// Mint a full-range position through the canonical PositionManager, paying via Permit2.
+    /// Mint a full-range position through the PositionManager, paying via Permit2.
     function mintFullRange(PoolKey memory k, uint128 liquidity, uint256 amount0Max, uint256 amount1Max, address owner)
         internal
         returns (uint256 tokenId)
@@ -93,17 +100,17 @@ library RHCVenue {
         );
     }
 
-    /// Initialise the pool at `usdgPerStock` and add full-range liquidity from `stockAmount`
+    /// Initialise the pool at `usdgPerAsset` and add full-range liquidity from `assetAmount`
     /// and the matching USDG. Returns the liquidity minted.
-    function createAndFund(address usdg, address stock, uint256 usdgPerStock, uint256 stockAmount, address owner)
+    function createAndFund(address usdg, address asset, uint256 usdgPerAsset, uint256 assetAmount, address owner)
         internal
         returns (PoolKey memory k, uint128 liquidity)
     {
-        k = poolKey(usdg, stock);
-        uint160 sqrtP = sqrtPriceX96(k, usdg, usdgPerStock);
+        k = poolKey(usdg, asset);
+        uint160 sqrtP = sqrtPriceX96(k, usdg, usdgPerAsset);
         IPoolManager(POOL_MANAGER).initialize(k, sqrtP);
-        uint256 usdgAmount = FullMath.mulDivRoundingUp(stockAmount, usdgPerStock, 1e18) + 1;
-        (uint256 a0, uint256 a1) = Currency.unwrap(k.currency0) == usdg ? (usdgAmount, stockAmount) : (stockAmount, usdgAmount);
+        uint256 usdgAmount = FullMath.mulDivRoundingUp(assetAmount, usdgPerAsset, 1e18) + 1;
+        (uint256 a0, uint256 a1) = Currency.unwrap(k.currency0) == usdg ? (usdgAmount, assetAmount) : (assetAmount, usdgAmount);
         liquidity = fullRangeLiquidity(sqrtP, a0, a1);
         mintFullRange(k, liquidity, a0, a1, owner);
     }

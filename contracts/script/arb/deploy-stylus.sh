@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Deploy the unchanged Stylus Verifier (verifier/) and ReceiptVerifier (receipt-verifier/) to Robinhood
-# Chain, then read each back. Testnet by default; mainnet with RHC_CHAIN_ID=4663 and the mainnet RPC.
+# Deploy the unchanged Stylus Verifier (verifier/) and ReceiptVerifier (receipt-verifier/) to an Arbitrum
+# chain, then read each back. Arbitrum Sepolia by default; Arbitrum One with CHAIN_ID=42161 and its RPC.
 #
-#   PRIVATE_KEY_PATH=/path/to/file-with-hex-key contracts/script/rhc/deploy-stylus.sh
-#   RHC_CHAIN_ID=4663 RHC_RPC_URL=https://rpc.mainnet.chain.robinhood.com PRIVATE_KEY_PATH=... contracts/script/rhc/deploy-stylus.sh
+#   PRIVATE_KEY_PATH=/path/to/file-with-hex-key contracts/script/arb/deploy-stylus.sh
+#   CHAIN_ID=42161 RPC_URL=https://arb1.arbitrum.io/rpc PRIVATE_KEY_PATH=... contracts/script/arb/deploy-stylus.sh
 #   ESTIMATE=1 ...  prints `cargo stylus check` (activation data fee) and deploy gas estimates; sends nothing.
 #
 # The key is read by cargo-stylus from the file; this script never reads, prints or passes it.
@@ -11,8 +11,8 @@
 # nonce the quote does not carry reverts (the WASM runs and checks the nonce binding).
 set -euo pipefail
 : "${PRIVATE_KEY_PATH:?set PRIVATE_KEY_PATH to a file holding the deployer key}"
-RPC="${RHC_RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
-CHAIN="${RHC_CHAIN_ID:-46630}"
+RPC="${RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}"
+CHAIN="${CHAIN_ID:-421614}"
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 OUT="$ROOT/contracts/deployments"
 export FOUNDRY_DISABLE_NIGHTLY_WARNING=1

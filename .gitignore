@@ -23,3 +23,7 @@ contracts/cache-mut/
 
 # internal status board, never shipped to judges
 .progress/
+
+# CWF port: local keys and owner log never leave this machine
+demo/keys/
+demo/owners.log
