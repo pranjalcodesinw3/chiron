@@ -43,9 +43,9 @@ contract AgentAccountArbForkTest is Test {
             vm.skip(true);
             return;
         }
-        uint256 at = vm.envOr("ARB_SEPOLIA_FORK_BLOCK", uint256(0));
-        if (at == 0) vm.createSelectFork(url);
-        else vm.createSelectFork(url, at);
+        // The block before the live deploy: from 315,956,395 on, the WETH/USDG pool this script
+        // creates exists on 421614 and initialize() reverts PoolAlreadyInitialized.
+        vm.createSelectFork(url, vm.envOr("ARB_SEPOLIA_FORK_BLOCK", uint256(315_956_394)));
         assertEq(block.chainid, ArbVenue.CHAIN_ID);
         _deployViaScript();
         _;
