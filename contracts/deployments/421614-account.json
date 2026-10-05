@@ -1,0 +1,23 @@
+{
+  "block": 11847578,
+  "chainId": 421614,
+  "contracts": {
+    "AgentAccount": "0x5EaE79705e7581709947930BaBE3a9Ba3d55164D",
+    "AgentAccountFactory": "0xC767f515c0232572e0ADC78AF1098faa1c073347",
+    "Assay": "0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4",
+    "PoolManager": "0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317",
+    "PositionManager": "0xAc631556d3d4019C95769033B5E719dD77124BAc",
+    "ReceiptVerifier": "0x9AF7D9C3B27c4A8a11Fb879041B931C38B712380",
+    "USDG": "0xFFC95faa3d63Cde504a05B567C600B78C0b41892",
+    "Verifier": "0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c",
+    "WETH": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"
+  },
+  "deployer": "0xAFa83935073107641b3B38bF5B83b65bDfF1a65A",
+  "inferenceChannelId": 0,
+  "pool": {
+    "liquidity": 203940384464,
+    "poolId": "0x0640d4c4b7085b160495c39711d06754cc5aedc6b32b61c637e2c15d9333bf51",
+    "sqrtPriceX96": "4039859466863342510789667"
+  },
+  "transactions": "broadcast/DeployAgentAccountArb.s.sol/421614/run-latest.json"
+}
