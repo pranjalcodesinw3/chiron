@@ -9,8 +9,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ACCOUNT_ADDRESS: "0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D"
-      RHC_RPC_URL: "https://rpc.testnet.chain.robinhood.com"
+      ACCOUNT_ADDRESS: "0x5EaE79705e7581709947930BaBE3a9Ba3d55164D"
+      RPC_URL: "https://sepolia-rollup.arbitrum.io/rpc"
       CONTROL_TOKEN: "${CONTROL_TOKEN}"
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock

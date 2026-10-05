@@ -5,10 +5,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import handler from '../api/mcp.js';
 
-// Same real trade as verify.test.ts, reached the way a remote agent reaches it: MCP over HTTP.
-// MCP_URL points the test at the deployed endpoint instead of a local listener.
-const TRADE = '0xe50522661b55c797071b56e43aaf2bc91d37c9745a295ff6a5976883dd4ddfa2';
-const SERVED = '0xc8536dbf086093b9b12c84bc9c4448f0c36c74d9b4a65cda6667d9d99f78df59';
+// Same live trade as verify.test.ts (CHIRON_TRADE_TX, CHIRON_SERVED_HASH), reached the way a remote agent
+// reaches it: MCP over HTTP. MCP_URL points the test at the deployed endpoint instead of a local listener.
+const TRADE = process.env.CHIRON_TRADE_TX;
+const SERVED = process.env.CHIRON_SERVED_HASH;
+const live = TRADE && SERVED ? {} : { skip: 'set CHIRON_TRADE_TX and CHIRON_SERVED_HASH' };
 
 let http: Server | undefined;
 let url = process.env.MCP_URL ?? '';
@@ -46,13 +47,13 @@ describe('MCP over Streamable HTTP', () => {
     assert.deepEqual(tools.map((t) => t.name).sort(), ['account_state', 'explain_refusal', 'verify_receipt']);
   });
 
-  it('verifies the real trade', async () => {
+  it('verifies the real trade', live, async () => {
     const r = await call('verify_receipt', { tx_hash: TRADE, expected_served_model_hash: SERVED });
     assert.ok(r.checks.length >= 6);
     assert.equal(r.verified, true);
   });
 
-  it('refuses the same trade against a different model hash', async () => {
+  it('refuses the same trade against a different model hash', live, async () => {
     const r = await call('verify_receipt', { tx_hash: TRADE, expected_served_model_hash: `0x${'11'.repeat(32)}` });
     assert.equal(r.verified, false);
   });

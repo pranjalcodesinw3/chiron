@@ -1,11 +1,11 @@
 // A genuine Phala receipt for the wrong model is refused on chain. The receipt is the one the
-// attested agent spent on its first live trade (AgentAccount.execute, Robinhood Chain testnet):
-// signed by Phala's registered receipt key, served `llama3-3-70b`. The payer opens an Assay channel
+// attested agent spent on its first live trade (AgentAccount.execute, Arbitrum Sepolia, tx named by TRADE_TX):
+// signed by Phala's registered receipt key. The payer opens an Assay channel
 // pinned to a different model, the provider presents that receipt to redeemWithReceipt, and the
 // transaction is mined and reverts ModelMismatch with the channel's paid amount unchanged.
 //
-//   PRIVATE_KEY (payer) and PROVIDER_PRIVATE_KEY from ../.env; npm run assay-model-swap
-//   ASSAY_ADDRESS and CHANNEL_ID reuse an open channel on another Assay (e.g. the Paxos USDG Assay).
+//   PRIVATE_KEY (payer) and PROVIDER_PRIVATE_KEY from ../.env, TRADE_TX in the environment; npm run assay-model-swap
+//   ASSAY_ADDRESS and CHANNEL_ID reuse an open channel on another Assay .
 import {
   createPublicClient,
   createWalletClient,
@@ -24,22 +24,21 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { assayAbi } from '../../web/src/abi/Assay.generated.ts';
 import { agentAccountAbi } from './account-abi.ts';
-import { RHC_CHAIN_ID } from './account.ts';
+import { CHAIN_ID } from './account.ts';
 
-const RPC = process.env.RHC_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com';
-const ASSAY: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || '0x2176E7f20654C8747Fa37b3d96E1ACbf7Df55b5D') as Address;
+const RPC = process.env.RPC_URL ?? 'https://sepolia-rollup.arbitrum.io/rpc';
+const ASSAY: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || '0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4') as Address;
 const EXISTING_CHANNEL = (process.env.CHANNEL_ID ?? '').trim();
 const REDEEM = BigInt(process.env.REDEEM_AMOUNT ?? '1');
-const TEST_USDG: Address = '0x3500DaF0ADcE615A0bEF108FF0751ABb34b1FfCC';
 const GATEWAY_MEASUREMENT: Hex = '0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149';
-const FIRST_TRADE: Hex = '0xe50522661b55c797071b56e43aaf2bc91d37c9745a295ff6a5976883dd4ddfa2';
+const FIRST_TRADE = key('TRADE_TX');
 const PINNED_MODEL = 'phala/qwen3.8-27b-uncensored';
 const DEPOSIT = 1_000_000n;
 
 const receiptVerifierAbi = parseAbi([
   'function verifyReceipt(bytes32 pubkey, bytes receiptBytes, bytes signature) view returns (bool ok, bytes32 requestedModelHash, bytes32 servedModelHash, bytes32 requestHash, bytes32 responseHash)',
 ]);
-const erc20Abi = parseAbi(['function mint(address to, uint256 amount)', 'function approve(address spender, uint256 amount) returns (bool)']);
+const erc20Abi = parseAbi(['function balanceOf(address) view returns (uint256)', 'function approve(address spender, uint256 amount) returns (bool)']);
 
 function key(name: string): Hex {
   const k = (process.env[name] ?? '').trim();
@@ -48,8 +47,8 @@ function key(name: string): Hex {
 }
 
 const chain = defineChain({
-  id: RHC_CHAIN_ID,
-  name: 'Robinhood Chain Testnet',
+  id: CHAIN_ID,
+  name: 'Arbitrum Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 });
@@ -63,7 +62,7 @@ async function mined(hash: Hex, what: string) {
   return r;
 }
 
-// 1. The real receipt, straight from the first trade's calldata, and what the verifier reads from it.
+// 1. The real receipt, straight from the calldata of the AgentAccount.execute tx named by TRADE_TX, and what the verifier reads from it.
 const tradeTx = await pub.getTransaction({ hash: FIRST_TRADE });
 const { args } = decodeFunctionData({ abi: agentAccountAbi, data: tradeTx.input });
 const receipt = (args as unknown as [unknown, { pubkey: Hex; receiptBytes: Hex; signature: Hex }])[1];
@@ -88,8 +87,10 @@ if (EXISTING_CHANNEL) {
   if (ch[0] !== payer.account.address || ch[1] !== provider.account.address || ch[9] !== pin || ch[7]) throw new Error(`channel ${channelId} is not an open ${PINNED_MODEL} channel from this payer to this provider`);
   console.log(`reusing channel ${channelId} on ${ASSAY}: pinned to ${PINNED_MODEL} (${pin}), deposit ${ch[2]}, paid ${ch[3]}`);
 } else {
-await mined(await payer.writeContract({ address: TEST_USDG, abi: erc20Abi, functionName: 'mint', args: [payer.account.address, DEPOSIT] }), 'mint');
-await mined(await payer.writeContract({ address: TEST_USDG, abi: erc20Abi, functionName: 'approve', args: [ASSAY, DEPOSIT] }), 'approve');
+const usdg = (await pub.readContract({ address: ASSAY, abi: assayAbi, functionName: 'usdg' })) as Address;
+const held = await pub.readContract({ address: usdg, abi: erc20Abi, functionName: 'balanceOf', args: [payer.account.address] });
+if (held < DEPOSIT) throw new Error(`payer holds ${held} USDG, needs ${DEPOSIT} (faucet.paxos.com)`);
+await mined(await payer.writeContract({ address: usdg, abi: erc20Abi, functionName: 'approve', args: [ASSAY, DEPOSIT] }), 'approve');
 const openHash = await payer.writeContract({
   address: ASSAY,
   abi: assayAbi,
@@ -108,7 +109,7 @@ if ((await pub.getBalance({ address: provider.account.address })) < parseEther('
   await mined(await payer.sendTransaction({ to: provider.account.address, value: parseEther('0.0003') }), 'fund provider');
 }
 const payerSig = await payer.signTypedData({
-  domain: { name: 'Assay', version: '1', chainId: RHC_CHAIN_ID, verifyingContract: ASSAY },
+  domain: { name: 'Assay', version: '1', chainId: CHAIN_ID, verifyingContract: ASSAY },
   types: { Voucher: [
     { name: 'channelId', type: 'uint256' },
     { name: 'cumulativeAmount', type: 'uint256' },

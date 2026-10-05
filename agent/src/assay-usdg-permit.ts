@@ -1,5 +1,5 @@
-// One signature, one transaction: the payer opens an Assay channel in Paxos's testnet USDG on
-// Robinhood Chain with an EIP-2612 permit instead of an approve. openChannelWithPermit falls back to
+// One signature, one transaction: the payer opens an Assay channel in Paxos USDG on
+// Arbitrum Sepolia with an EIP-2612 permit instead of an approve. openChannelWithPermit falls back to
 // an existing allowance when the permit call fails, so the check that the permit itself executed is
 // the payer's USDG nonce moving by one, with no prior allowance.
 //
@@ -7,11 +7,11 @@
 import { createPublicClient, createWalletClient, defineChain, http, keccak256, parseAbi, parseEventLogs, toBytes, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { assayAbi } from '../../web/src/abi/Assay.generated.ts';
-import { RHC_CHAIN_ID } from './account.ts';
+import { CHAIN_ID } from './account.ts';
 
-const RPC = process.env.RHC_RPC_URL ?? 'https://rpc.testnet.chain.robinhood.com';
-const ASSAY: Address = (process.env.USDG_ASSAY_ADDRESS as Address | undefined) ?? '0xcF4a98E21D4180b32B9726ef3d0A550A69973f9d';
-const USDG: Address = '0x7E955252E15c84f5768B83c41a71F9eba181802F';
+const RPC = process.env.RPC_URL ?? 'https://sepolia-rollup.arbitrum.io/rpc';
+const ASSAY: Address = (process.env.ASSAY_ADDRESS as Address | undefined) ?? '0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4';
+const USDG: Address = '0xFFC95faa3d63Cde504a05B567C600B78C0b41892';
 const GATEWAY_MEASUREMENT: Hex = '0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149';
 const PINNED_MODEL = 'phala/qwen3.8-27b-uncensored';
 const AMOUNT = BigInt(process.env.DEPOSIT ?? '1000000');
@@ -30,8 +30,8 @@ function key(name: string): Hex {
 }
 
 const chain = defineChain({
-  id: RHC_CHAIN_ID,
-  name: 'Robinhood Chain Testnet',
+  id: CHAIN_ID,
+  name: 'Arbitrum Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 });
@@ -55,7 +55,7 @@ if (balBefore < AMOUNT) throw new Error(`payer holds ${balBefore} USDG, needs ${
 // Paxos's USDG has no version(); "1" is the version whose domain separator equals DOMAIN_SEPARATOR() on chain.
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800);
 const sig = await payer.signTypedData({
-  domain: { name, version: '1', chainId: RHC_CHAIN_ID, verifyingContract: USDG },
+  domain: { name, version: '1', chainId: CHAIN_ID, verifyingContract: USDG },
   types: { Permit: [
     { name: 'owner', type: 'address' },
     { name: 'spender', type: 'address' },

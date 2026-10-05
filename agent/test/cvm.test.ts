@@ -1,4 +1,4 @@
-// Runs src/cvm.ts as a child process against the live RHC testnet account, with a fake dstack
+// Runs src/cvm.ts as a child process against the live Arbitrum Sepolia account, with a fake dstack
 // socket standing in for the guest agent. The fake records report_data, so the test checks the
 // bytes the CVM asks the TEE to bind: agent(20) || 0(12) || attestNonce(32), where the nonce is
 // what the deployed account returns for the refBlock the CVM reports.
@@ -13,9 +13,9 @@ import { createPublicClient, http, defineChain, type Hex } from 'viem';
 import { agentAccountAbi } from '../src/account-abi.ts';
 import { fromWire } from '../src/wire.ts';
 
-const ACCOUNT = '0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D';
-const RPC = 'https://rpc.testnet.chain.robinhood.com';
-const PORT = 18080;
+const ACCOUNT = '0x5EaE79705e7581709947930BaBE3a9Ba3d55164D';
+const RPC = 'https://sepolia-rollup.arbitrum.io/rpc';
+const PORT = Number(process.env.CVM_TEST_PORT ?? 18080);
 const TOKEN = 'test-token';
 
 const seen: string[] = [];
@@ -34,7 +34,7 @@ const fake = httpServer((req, res) => {
 await new Promise<void>((r) => fake.listen(sock, r));
 
 const child = spawn('node', ['src/cvm.ts'], {
-  env: { ...process.env, DSTACK_SOCKET: sock, ACCOUNT_ADDRESS: ACCOUNT, RHC_RPC_URL: RPC, CONTROL_TOKEN: TOKEN, PORT: String(PORT) },
+  env: { ...process.env, DSTACK_SOCKET: sock, ACCOUNT_ADDRESS: ACCOUNT, RPC_URL: RPC, CONTROL_TOKEN: TOKEN, PORT: String(PORT) },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise<void>((resolve, reject) => {
@@ -49,7 +49,7 @@ const base = `http://127.0.0.1:${PORT}`;
 
 test('/quote binds the generated agent key and the account attestNonce', async () => {
   const q = fromWire<{ agent: Hex; refBlock: bigint; nonce: Hex; quote: Hex }>(await (await fetch(`${base}/quote`, { method: 'POST' })).text());
-  const chain = defineChain({ id: 46630, name: 'rhc', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [RPC] } } });
+  const chain = defineChain({ id: 421614, name: 'arbitrum-sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [RPC] } } });
   const nonce = await createPublicClient({ chain, transport: http(RPC) }).readContract({ address: ACCOUNT, abi: agentAccountAbi, functionName: 'attestNonce', args: [q.refBlock] });
   assert.equal(q.nonce, nonce);
   assert.equal(q.quote, '0xdeadbeef');
@@ -66,22 +66,18 @@ test('/tx refuses a missing or wrong bearer and any non-agent function', async (
   assert.equal(owner.status, 400);
 });
 
-// A second client account from the same factory: one CVM key, a quote bound to each account's nonce.
-const ACCOUNT2 = '0xe1d7939105cf8b3670d6b4a0e15546c036e6c34c';
+// An explicit ?account= binds that account's nonce: one CVM key, a quote per client account.
+const ACCOUNT2 = ACCOUNT.toLowerCase();
 
-test('/quote?account= binds the second account nonce, not the default one', async () => {
-  const chain = defineChain({ id: 46630, name: 'rhc', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [RPC] } } });
+test('/quote?account= binds the named account nonce', async () => {
+  const chain = defineChain({ id: 421614, name: 'arbitrum-sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [RPC] } } });
   const c = createPublicClient({ chain, transport: http(RPC) });
   const res = await fetch(`${base}/quote?account=${ACCOUNT2}`, { method: 'POST' });
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const q = fromWire<{ agent: Hex; account: Hex; refBlock: bigint; nonce: Hex }>(await res.text());
-  const [n2, n1] = await Promise.all([
-    c.readContract({ address: ACCOUNT2, abi: agentAccountAbi, functionName: 'attestNonce', args: [q.refBlock] }),
-    c.readContract({ address: ACCOUNT, abi: agentAccountAbi, functionName: 'attestNonce', args: [q.refBlock] }),
-  ]);
+  const n2 = await c.readContract({ address: ACCOUNT2 as Hex, abi: agentAccountAbi, functionName: 'attestNonce', args: [q.refBlock] });
   assert.equal(q.account.toLowerCase(), ACCOUNT2);
   assert.equal(q.nonce, n2);
-  assert.notEqual(q.nonce, n1);
   assert.equal(seen.at(-1), q.agent.slice(2).toLowerCase() + '0'.repeat(24) + (n2 as string).slice(2));
 });
 

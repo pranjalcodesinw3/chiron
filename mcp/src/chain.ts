@@ -11,13 +11,12 @@ import {
 import { agentAccountAbi } from './account-abi.js';
 import { checkReceipt, receiptKey, type Check } from './receipt.js';
 
-export const RHC_RPC = 'https://rpc.testnet.chain.robinhood.com';
-export const RHC_ID = 46630;
-const EXPLORER = process.env.CHIRON_EXPLORER_URL ?? 'https://explorer.testnet.chain.robinhood.com';
-const DEPLOY_BLOCK = 127033401n;
+export const CHAIN_RPC = 'https://sepolia-rollup.arbitrum.io/rpc';
+export const CHAIN_ID = 421614;
+const DEPLOY_BLOCK = 315956000n;
 
-export const rhcClient = (rpc = RHC_RPC): PublicClient =>
-  createPublicClient({ chain: { id: RHC_ID, name: 'Robinhood Chain Testnet', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [rpc] } } }, transport: http(rpc) });
+export const chironClient = (rpc = CHAIN_RPC): PublicClient =>
+  createPublicClient({ chain: { id: CHAIN_ID, name: 'Arbitrum Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [rpc] } } }, transport: http(rpc) });
 
 const ZERO32 = `0x${'0'.repeat(64)}` as Hex;
 const fail = (name: string, detail: string): { verified: false; checks: Check[] } => ({ verified: false, checks: [{ name, ok: false, detail }] });
@@ -107,7 +106,7 @@ const GLOSS: Record<string, string> = {
   ProposalNotPending: 'The proposal is already executed, rejected or cancelled.',
   ProposalExpired: 'The proposal lifetime ran out.',
   TradeMismatch: 'The trade passed to approveTrade differs from the proposed one.',
-  CorporateActionPending: 'A Stock Token in the trade has an ERC-8056 multiplier change pending or took one effect within the last day, so the agent stays out; the owner can still approve a proposal.',
+  CorporateActionPending: 'A token in the trade has an ERC-8056 multiplier change pending or took one effect within the last day, so the agent stays out; the owner can still approve a proposal.',
   AgentIsOwner: 'The quote names the owner key as the agent. Owner and agent must be different keys.',
   ApprovalNotNeeded: 'The trade is inside the approval line, so the agent executes it directly instead of proposing it.',
   BadLimits: 'The approval threshold is above the per-trade cap.',
@@ -135,27 +134,15 @@ export async function explainRefusal(c: PublicClient, txHash: Hex) {
   const tx = await c.getTransaction({ hash: txHash });
   const rcpt = await c.getTransactionReceipt({ hash: txHash });
   if (rcpt.status === 'success') return { txHash, reverted: false, explanation: 'This transaction succeeded, there is no refusal to explain.' };
-  // The explorer's raw trace holds the revert output the chain produced; the public RPC keeps no history to replay.
+  // Replay the call one block before it was mined; the revert output is what the chain produced.
   let data: Hex | undefined;
-  let source = 'explorer raw-trace output';
+  const source = `eth_call replay at block ${rcpt.blockNumber - 1n}`;
   try {
-    const r = await fetch(`${EXPLORER}/api/v2/transactions/${txHash}/raw-trace`);
-    if (r.ok) {
-      const t = (await r.json()) as { output?: string };
-      if (t.output && t.output.length >= 10) data = t.output as Hex;
-    }
-  } catch {
-    // fall through to the replay below
+    await c.call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
+  } catch (e) {
+    data = findRevertData(e);
   }
-  if (!data) {
-    source = `eth_call replay at block ${rcpt.blockNumber - 1n}`;
-    try {
-      await c.call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
-    } catch (e) {
-      data = findRevertData(e);
-    }
-  }
-  if (!data) return { txHash, reverted: true, error: 'undetermined', explanation: 'The transaction reverted but neither the explorer trace nor an RPC replay returned revert data.' };
+  if (!data) return { txHash, reverted: true, error: 'undetermined', explanation: 'The transaction reverted but the RPC replay returned no revert data.' };
   try {
     const err = decodeErrorResult({ abi: agentAccountAbi, data });
     return { txHash, reverted: true, error: err.errorName, args: (err.args ?? []).map(String), source, explanation: GLOSS[err.errorName] ?? `The account refused with ${err.errorName}.` };

@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { accountState, explainRefusal, rhcClient, verifyReceipt } from './chain.js';
+import { accountState, explainRefusal, chironClient, verifyReceipt } from './chain.js';
 
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'a 32-byte hex transaction hash');
 const addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'a 20-byte hex address');
@@ -8,12 +8,12 @@ const json = (v: unknown) => ({ content: [{ type: 'text' as const, text: JSON.st
 
 /** The three Chiron tools on one server; stdio (server.ts) and Streamable HTTP (api/mcp.ts) both serve it. */
 export function buildServer(rpcUrl?: string): McpServer {
-  const c = rhcClient(rpcUrl);
+  const c = chironClient(rpcUrl);
   const server = new McpServer({ name: 'chiron', version: '0.1.0' });
   server.registerTool(
     'verify_receipt',
     {
-      description: 'Verify a Chiron trade on Robinhood Chain testnet (46630). Recomputes the receipt hash from chain data, checks the recorded model hash against the account model pin. verified is false unless every check passes.',
+      description: 'Verify a Chiron trade on Arbitrum Sepolia (421614). Recomputes the receipt hash from chain data, checks the recorded model hash against the account model pin. verified is false unless every check passes.',
       inputSchema: { tx_hash: hash, expected_served_model_hash: hash.optional() },
     },
     async ({ tx_hash, expected_served_model_hash }) => json(await verifyReceipt(c, tx_hash as `0x${string}`, { expectedServed: expected_served_model_hash as `0x${string}` | undefined })),

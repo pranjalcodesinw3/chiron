@@ -7,15 +7,15 @@
 # never approves one.
 #
 # Installed copy runs from ~/.local/share/chiron-keeper (launchd cannot read ~/Desktop), with a
-# chmod 600 .env there holding PRIVATE_KEY (any funded RHC key: registerAgent is permissionless) and CVM_URL.
+# chmod 600 .env there holding PRIVATE_KEY (any funded Arbitrum Sepolia key: registerAgent is permissionless) and CVM_URL.
 set -uo pipefail
 export PATH="$HOME/.foundry/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
 cd "$(dirname "${BASH_SOURCE[0]}")"
 [ -f ./.env ] && { set -a; . ./.env; set +a; }
 
-RPC="${RHC_RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
-ACCOUNTS="${ACCOUNTS:-0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D 0xE1d7939105cF8B3670d6b4a0E15546C036e6c34c 0x06AAadCc83873775D8A72F42B912f57ab3dc2506 0xFaaAa4d1ee944d317b10233505D8c57425C53b55 0x5492A8e671D37e5785020c02b83cA5603be8D5D7}"
+RPC="${RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}"
+ACCOUNTS="${ACCOUNTS:-0x5EaE79705e7581709947930BaBE3a9Ba3d55164D}"
 RENEW_WITHIN="${RENEW_WITHIN:-10800}"
 log() { echo "$(date -u +%FT%TZ) $*"; }
 

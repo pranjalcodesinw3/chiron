@@ -11,13 +11,13 @@
 //                 account's caps and receipt checks are the policy; this route only holds the key.
 //
 // /info and /quote answer cross-origin, so a client's browser can fetch a quote for its own account.
-// ACCOUNT_ADDRESS and RHC_RPC_URL come from the compose file, so they are measured into RTMR3.
+// ACCOUNT_ADDRESS and RPC_URL come from the compose file, so they are measured into RTMR3.
 import { createServer, request, type ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, type Address, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { agentAccountAbi } from './account-abi.ts';
-import { agentReportData, RHC_CHAIN_ID } from './account.ts';
+import { agentReportData, CHAIN_ID } from './account.ts';
 import { fromWire, toWire } from './wire.ts';
 
 const SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock';
@@ -74,12 +74,12 @@ function pickAccount(raw: unknown, fallback: Address): Address | undefined {
 }
 
 async function main() {
-  const rpc = need('RHC_RPC_URL');
+  const rpc = need('RPC_URL');
   const account = need('ACCOUNT_ADDRESS') as Address;
   const token = need('CONTROL_TOKEN');
   const chain = defineChain({
-    id: RHC_CHAIN_ID,
-    name: 'Robinhood Chain Testnet',
+    id: CHAIN_ID,
+    name: 'Arbitrum Sepolia',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });
@@ -87,7 +87,7 @@ async function main() {
   const publicClient = createPublicClient({ chain, transport: http(rpc) });
   const wallet = createWalletClient({ account: agent, chain, transport: http(rpc) });
   const chainId = await publicClient.getChainId();
-  if (chainId !== RHC_CHAIN_ID) throw new Error(`RPC chain id ${chainId}, expected ${RHC_CHAIN_ID}`);
+  if (chainId !== CHAIN_ID) throw new Error(`RPC chain id ${chainId}, expected ${CHAIN_ID}`);
 
   const server = createServer(async (req, res) => {
     try {
