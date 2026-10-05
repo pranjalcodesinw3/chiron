@@ -13,6 +13,8 @@ import { checkReceipt, receiptKey, type Check } from './receipt.js';
 
 export const CHAIN_RPC = 'https://sepolia-rollup.arbitrum.io/rpc';
 export const CHAIN_ID = 421614;
+// Most Arbitrum Sepolia nodes prune old state; this gateway answers eth_call at any past block.
+export const ARCHIVE_RPC = 'https://arbitrum-sepolia.gateway.tenderly.co';
 const DEPLOY_BLOCK = 315956000n;
 
 export const chironClient = (rpc = CHAIN_RPC): PublicClient =>
@@ -138,7 +140,7 @@ export async function explainRefusal(c: PublicClient, txHash: Hex) {
   let data: Hex | undefined;
   const source = `eth_call replay at block ${rcpt.blockNumber - 1n}`;
   try {
-    await c.call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
+    await chironClient(ARCHIVE_RPC).call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
   } catch (e) {
     data = findRevertData(e);
   }

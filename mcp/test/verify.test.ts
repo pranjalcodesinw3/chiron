@@ -54,3 +54,15 @@ describe('explain_refusal', live, () => {
     assert.equal((r as { error?: string }).error, 'ExceedsPerTradeCap');
   });
 });
+
+// The spike's mined refusal on the live account: a real Phala quote whose measurement the owner had not approved.
+const UNAPPROVED = '0x30508980df2710fb5af2cba20ffa232603db3206c73b072ccd1665b1c56a7e29';
+
+describe('explain_refusal on the mined Arbitrum Sepolia refusal', () => {
+  it('decodes registerAgent with an unapproved measurement to MeasurementNotApproved', async () => {
+    const r = await explainRefusal(c, UNAPPROVED);
+    assert.equal(r.reverted, true);
+    assert.equal((r as { error?: string }).error, 'MeasurementNotApproved');
+    assert.deepEqual((r as { args?: string[] }).args, ['0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149']);
+  });
+});
