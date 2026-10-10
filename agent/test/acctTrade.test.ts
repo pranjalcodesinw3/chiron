@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { keccak256, type Address } from 'viem';
-import { encodeTrade, poolId, poolKey, tradeHash, WETH, type Trade } from '../src/account.ts';
+import { encodeTrade, poolId, poolKey, tradeHash, ASSET, type Trade } from '../src/account.ts';
 
 const USDG: Address = '0xd2b6c1e0a7f4b3c29e8d5a61f0c7b4e3a2918d7c'; // any testUSDG deployment address
 
@@ -13,13 +13,13 @@ function cast(args: string[]): string {
   return execFileSync('cast', args, { env: { ...process.env, FOUNDRY_DISABLE_NIGHTLY_WARNING: '1' } }).toString().trim();
 }
 
-const key = poolKey(USDG, WETH);
+const key = poolKey(USDG, ASSET);
 const trade: Trade = { key, zeroForOne: true, amountIn: 1_000_000n, minOut: 3_950_000_000_000_000n, deadline: 1_790_000_600n };
 
 test('poolKey sorts currencies and is the hookless 0.3% / 60 pool', () => {
   assert.ok(BigInt(key.currency0) < BigInt(key.currency1));
   assert.deepEqual([key.fee, key.tickSpacing, key.hooks], [3000, 60, '0x0000000000000000000000000000000000000000']);
-  assert.deepEqual(poolKey(WETH, USDG), key);
+  assert.deepEqual(poolKey(ASSET, USDG), key);
 });
 
 test('encodeTrade equals cast abi-encode of the same tuple', () => {

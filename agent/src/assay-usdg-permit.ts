@@ -4,14 +4,15 @@
 // the payer's USDG nonce moving by one, with no prior allowance.
 //
 //   PRIVATE_KEY (payer) and PROVIDER_PRIVATE_KEY from ../.env; npm run assay-usdg-permit
+import { active } from './chains.ts';
 import { createPublicClient, createWalletClient, defineChain, http, keccak256, parseAbi, parseEventLogs, toBytes, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { assayAbi } from '../../web/src/abi/Assay.generated.ts';
 import { CHAIN_ID } from './account.ts';
 
-const RPC = process.env.RPC_URL ?? 'https://sepolia-rollup.arbitrum.io/rpc';
-const ASSAY: Address = (process.env.ASSAY_ADDRESS as Address | undefined) ?? '0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4';
-const USDG: Address = '0xFFC95faa3d63Cde504a05B567C600B78C0b41892';
+const RPC = process.env.RPC_URL ?? active.rpc;
+const ASSAY: Address = (process.env.ASSAY_ADDRESS as Address | undefined) ?? active.assay;
+const USDG: Address = active.usdg;
 const GATEWAY_MEASUREMENT: Hex = '0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149';
 const PINNED_MODEL = 'phala/qwen3.8-27b-uncensored';
 const AMOUNT = BigInt(process.env.DEPOSIT ?? '1000000');
@@ -31,7 +32,7 @@ function key(name: string): Hex {
 
 const chain = defineChain({
   id: CHAIN_ID,
-  name: 'Arbitrum Sepolia',
+  name: active.name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 });

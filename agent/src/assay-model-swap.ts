@@ -6,6 +6,7 @@
 //
 //   PRIVATE_KEY (payer) and PROVIDER_PRIVATE_KEY from ../.env, TRADE_TX in the environment; npm run assay-model-swap
 //   ASSAY_ADDRESS and CHANNEL_ID reuse an open channel on another Assay .
+import { active } from './chains.ts';
 import {
   createPublicClient,
   createWalletClient,
@@ -26,8 +27,8 @@ import { assayAbi } from '../../web/src/abi/Assay.generated.ts';
 import { agentAccountAbi } from './account-abi.ts';
 import { CHAIN_ID } from './account.ts';
 
-const RPC = process.env.RPC_URL ?? 'https://sepolia-rollup.arbitrum.io/rpc';
-const ASSAY: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || '0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4') as Address;
+const RPC = process.env.RPC_URL ?? active.rpc;
+const ASSAY: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || active.assay) as Address;
 const EXISTING_CHANNEL = (process.env.CHANNEL_ID ?? '').trim();
 const REDEEM = BigInt(process.env.REDEEM_AMOUNT ?? '1');
 const GATEWAY_MEASUREMENT: Hex = '0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149';
@@ -48,7 +49,7 @@ function key(name: string): Hex {
 
 const chain = defineChain({
   id: CHAIN_ID,
-  name: 'Arbitrum Sepolia',
+  name: active.name,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 });

@@ -11,7 +11,8 @@
 //                 account's caps and receipt checks are the policy; this route only holds the key.
 //
 // /info and /quote answer cross-origin, so a client's browser can fetch a quote for its own account.
-// ACCOUNT_ADDRESS and RPC_URL come from the compose file, so they are measured into RTMR3.
+// CHAIN, ACCOUNT_ADDRESS and RPC_URL come from the compose file, so they are measured into RTMR3.
+import { active } from './chains.ts';
 import { createServer, request, type ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { createPublicClient, createWalletClient, defineChain, getAddress, http, isAddress, type Address, type Hex } from 'viem';
@@ -74,12 +75,12 @@ function pickAccount(raw: unknown, fallback: Address): Address | undefined {
 }
 
 async function main() {
-  const rpc = need('RPC_URL');
+  const rpc = (process.env.RPC_URL ?? '').trim() || active.rpc;
   const account = need('ACCOUNT_ADDRESS') as Address;
   const token = need('CONTROL_TOKEN');
   const chain = defineChain({
     id: CHAIN_ID,
-    name: 'Arbitrum Sepolia',
+    name: active.name,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });

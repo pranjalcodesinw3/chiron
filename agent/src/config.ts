@@ -2,13 +2,14 @@
 // are secrets (PHALA_API_KEY, PRIVATE_KEY) are kept as opaque strings and
 // never appear in any console.log/error in this package.
 import type { Address, Hex } from 'viem';
+import { active } from './chains.ts';
 
-// Arbitrum Sepolia deployment, contracts/deployments/421614-account.json.
-const CHAIN_ID = 421614;
-const RPC_URL = 'https://sepolia-rollup.arbitrum.io/rpc';
-export const assay: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || '0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4') as Address;
-export const usdg: Address = '0xFFC95faa3d63Cde504a05B567C600B78C0b41892';
-// CHAIN_ID overrides the chain the register/open/pay modes sign for, e.g. 421614 for Arbitrum Sepolia.
+// Network from CHAIN (src/chains.ts): robinhood-testnet or arbitrum-sepolia (default).
+const CHAIN_ID = active.id;
+const RPC_URL = active.rpc;
+export const assay: Address = ((process.env.ASSAY_ADDRESS ?? '').trim() || active.assay) as Address;
+export const usdg: Address = active.usdg;
+// CHAIN_ID overrides the chain id the register/open/pay modes sign for.
 export const chainId: number = Number((process.env.CHAIN_ID ?? '').trim()) || CHAIN_ID;
 export const rpcUrl: string = (process.env.RPC_URL ?? '').trim() || RPC_URL;
 
