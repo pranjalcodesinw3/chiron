@@ -11,14 +11,35 @@ import {
 import { agentAccountAbi } from './account-abi.js';
 import { checkReceipt, receiptKey, type Check } from './receipt.js';
 
-export const CHAIN_RPC = 'https://sepolia-rollup.arbitrum.io/rpc';
-export const CHAIN_ID = 421614;
-// Most Arbitrum Sepolia nodes prune old state; this gateway answers eth_call at any past block.
-export const ARCHIVE_RPC = 'https://arbitrum-sepolia.gateway.tenderly.co';
-const DEPLOY_BLOCK = 315956000n;
+/** The two networks a Chiron account lives on. CHIRON_CHAIN picks the default; every tool also takes `chain`. */
+export type ChainKey = 'arbitrum-sepolia' | 'robinhood-testnet';
+export interface Net { key: ChainKey; id: number; name: string; rpc: string; archiveRpc: string; explorer: string; deployBlock: bigint }
+export const NETS: Record<ChainKey, Net> = {
+  // contracts/deployments/421614-account.json. Most Arbitrum Sepolia nodes prune old state; the Tenderly gateway answers eth_call at any past block.
+  'arbitrum-sepolia': { key: 'arbitrum-sepolia', id: 421614, name: 'Arbitrum Sepolia', rpc: 'https://sepolia-rollup.arbitrum.io/rpc', archiveRpc: 'https://arbitrum-sepolia.gateway.tenderly.co', explorer: 'https://sepolia.arbiscan.io', deployBlock: 315956000n },
+  // contracts/deployments/46630.json. The public RPC keeps no history; Blockscout's raw trace carries the revert output.
+  'robinhood-testnet': { key: 'robinhood-testnet', id: 46630, name: 'Robinhood Chain Testnet', rpc: 'https://rpc.testnet.chain.robinhood.com', archiveRpc: 'https://rpc.testnet.chain.robinhood.com', explorer: 'https://explorer.testnet.chain.robinhood.com', deployBlock: 127033401n },
+};
+export const CHAIN_KEYS = Object.keys(NETS) as [ChainKey, ...ChainKey[]];
 
-export const chironClient = (rpc = CHAIN_RPC): PublicClient =>
-  createPublicClient({ chain: { id: CHAIN_ID, name: 'Arbitrum Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [rpc] } } }, transport: http(rpc) });
+export function netFor(key?: string): Net {
+  const k = (key ?? process.env.CHIRON_CHAIN ?? 'arbitrum-sepolia').trim().toLowerCase();
+  const alias: Record<string, ChainKey> = { rhc: 'robinhood-testnet', robinhood: 'robinhood-testnet', '46630': 'robinhood-testnet', arb: 'arbitrum-sepolia', arbitrum: 'arbitrum-sepolia', '421614': 'arbitrum-sepolia' };
+  const net = NETS[(alias[k] ?? k) as ChainKey];
+  if (!net) throw new Error(`unknown chain ${k}; use one of ${CHAIN_KEYS.join(', ')}`);
+  return net;
+}
+const netById = (id: number | undefined): Net => Object.values(NETS).find((n) => n.id === id) ?? NETS['arbitrum-sepolia'];
+
+/** Back-compat for callers that read the Arbitrum constants directly. */
+export const CHAIN_RPC = NETS['arbitrum-sepolia'].rpc;
+export const CHAIN_ID = NETS['arbitrum-sepolia'].id;
+export const ARCHIVE_RPC = NETS['arbitrum-sepolia'].archiveRpc;
+
+export const chironClient = (rpc?: string, net: Net = netFor()): PublicClient => {
+  const url = rpc || net.rpc;
+  return createPublicClient({ chain: { id: net.id, name: net.name, nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [url] } } }, transport: http(url) });
+};
 
 const ZERO32 = `0x${'0'.repeat(64)}` as Hex;
 const fail = (name: string, detail: string): { verified: false; checks: Check[] } => ({ verified: false, checks: [{ name, ok: false, detail }] });
@@ -71,7 +92,7 @@ export async function accountState(c: PublicClient, account: Address) {
   const read = (functionName: string, args: readonly unknown[] = []) => c.readContract({ address: account, abi: agentAccountAbi, functionName, args } as never) as Promise<never>;
   const [agent, measurement, expiry, tradeCount, paused] = (await Promise.all([read('agent'), read('agentMeasurement'), read('agentExpiry'), read('tradeCount'), read('paused')])) as [Address, Hex, bigint, bigint, boolean];
   const head = await c.getBlockNumber();
-  const logs = (await c.getContractEvents({ address: account, abi: agentAccountAbi, fromBlock: DEPLOY_BLOCK, toBlock: head })) as unknown as { eventName: string; args: Record<string, unknown>; transactionHash: Hex; blockNumber: bigint }[];
+  const logs = (await eventsInChunks(c, account, netById(c.chain?.id).deployBlock, head)) as unknown as { eventName: string; args: Record<string, unknown>; transactionHash: Hex; blockNumber: bigint }[];
   const tokens = [...new Set(logs.filter((l) => l.eventName === 'LimitsSet').map((l) => l.args.token as Address))];
   const caps = await Promise.all(
     tokens.map(async (token) => {
@@ -83,7 +104,20 @@ export async function accountState(c: PublicClient, account: Address) {
     .filter((l) => l.eventName === 'TradeExecuted')
     .slice(-5)
     .map((l) => ({ tx: l.transactionHash, block: l.blockNumber.toString(), tradeId: String(l.args.tradeId), tokenIn: l.args.tokenIn, amountIn: String(l.args.amountIn), amountOut: String(l.args.amountOut), servedModelHash: l.args.servedModelHash }));
-  return { account, head: head.toString(), agent, measurement, expiry: expiry.toString(), paused, tradeCount: tradeCount.toString(), caps, recentTrades };
+  return { chain: netById(c.chain?.id).key, account, head: head.toString(), agent, measurement, expiry: expiry.toString(), paused, tradeCount: tradeCount.toString(), caps, recentTrades };
+}
+
+/** Public RPCs cap eth_getLogs at 100k blocks; walk the range in chunks, a few at a time, in block order. */
+async function eventsInChunks(c: PublicClient, address: Address, from: bigint, to: bigint) {
+  const STEP = 99_999n;
+  const ranges: [bigint, bigint][] = [];
+  for (let f = from; f <= to; f += STEP + 1n) ranges.push([f, f + STEP < to ? f + STEP : to]);
+  const out: unknown[] = [];
+  for (let i = 0; i < ranges.length; i += 6) {
+    const batch = await Promise.all(ranges.slice(i, i + 6).map(([fromBlock, toBlock]) => c.getContractEvents({ address, abi: agentAccountAbi, fromBlock, toBlock })));
+    for (const b of batch) out.push(...b);
+  }
+  return out;
 }
 
 const GLOSS: Record<string, string> = {
@@ -136,13 +170,30 @@ export async function explainRefusal(c: PublicClient, txHash: Hex) {
   const tx = await c.getTransaction({ hash: txHash });
   const rcpt = await c.getTransactionReceipt({ hash: txHash });
   if (rcpt.status === 'success') return { txHash, reverted: false, explanation: 'This transaction succeeded, there is no refusal to explain.' };
-  // Replay the call one block before it was mined; the revert output is what the chain produced.
+  const net = netById(c.chain?.id);
   let data: Hex | undefined;
-  const source = `eth_call replay at block ${rcpt.blockNumber - 1n}`;
-  try {
-    await chironClient(ARCHIVE_RPC).call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
-  } catch (e) {
-    data = findRevertData(e);
+  let source = '';
+  // Robinhood Chain testnet: the public RPC keeps no history, so read the revert output from the explorer's raw trace first.
+  if (net.key === 'robinhood-testnet') {
+    try {
+      const r = await fetch(`${net.explorer}/api/v2/transactions/${txHash}/raw-trace`);
+      if (r.ok) {
+        const t = (await r.json()) as { output?: string } | { output?: string }[];
+        const out = Array.isArray(t) ? t[0]?.output : t.output;
+        if (out && out.length >= 10) { data = out as Hex; source = 'explorer raw-trace output'; }
+      }
+    } catch {
+      // fall through to the replay below
+    }
+  }
+  // Otherwise replay the call one block before it was mined; the revert output is what the chain produced.
+  if (!data) {
+    source = `eth_call replay at block ${rcpt.blockNumber - 1n}`;
+    try {
+      await chironClient(net.archiveRpc, net).call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: rcpt.blockNumber - 1n });
+    } catch (e) {
+      data = findRevertData(e);
+    }
   }
   if (!data) return { txHash, reverted: true, error: 'undetermined', explanation: 'The transaction reverted but the RPC replay returned no revert data.' };
   try {
