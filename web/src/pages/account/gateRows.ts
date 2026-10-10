@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { decodeErrorResult, decodeFunctionData, parseEventLogs, toFunctionSelector, type Address, type Hex, type PublicClient } from 'viem';
 import { usePublicClient } from 'wagmi';
-import { archive, BLOCKSCOUT_API, chain, DEPLOY_BLOCK, modelName } from '../../chain';
+import { archive, BLOCKSCOUT_API, chain, DEPLOY_BLOCK, modelName, RAW_TRACE } from '../../chain';
 import { accountAbi } from '../../abi/AgentAccount.generated';
 import { fmtToken, fmtWhen, short } from '../../lib/format';
 
@@ -175,7 +175,19 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
 }
 
 /** Revert data of a mined, reverted call: replayed one block before it on the archive node. */
-export async function replayRevert(tx: { from: Address; to: Address | null; input: Hex; value: bigint }, block: bigint): Promise<Hex | undefined> {
+export async function replayRevert(tx: { from: Address; to: Address | null; input: Hex; value: bigint; hash?: Hex }, block: bigint): Promise<Hex | undefined> {
+  if (RAW_TRACE && tx.hash) {
+    try {
+      const r = await fetch(RAW_TRACE(tx.hash));
+      if (r.ok) {
+        const t = (await r.json()) as { output?: string } | { output?: string }[];
+        const out = Array.isArray(t) ? t[0]?.output : t.output;
+        if (out && out.length >= 10) return out as Hex;
+      }
+    } catch {
+      // fall through to the replay
+    }
+  }
   try {
     await archive.call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: block - 1n });
   } catch (e) {

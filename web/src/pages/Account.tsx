@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getAddress, isAddress, parseEventLogs, type Address } from 'viem';
 import { useConnection, useSwitchChain, useWriteContract } from 'wagmi';
-import { ACCOUNT, chain, explorer, FACTORY, modelName } from '../chain';
+import { ACCOUNT, ASSET_SYMBOL, chain, explorer, FACTORY, modelName, net } from '../chain';
+import { ChainBadge } from '../components/ChainSwitch';
 import { factoryAbi } from '../abi/AgentAccount.generated';
 import { GateLog } from '../components/GateLog';
 import { HexValue, Stamp } from '../components/Stamp';
@@ -81,7 +82,7 @@ export function Account() {
   const raw = params.get('account') ?? '';
   const account: Address = isAddress(raw) ? getAddress(raw) : ACCOUNT;
   useEffect(() => {
-    document.title = `Chiron: agent account ${short(account)}`;
+    document.title = `Chiron on ${net.short}: agent account ${short(account)}`;
   }, [account]);
 
   const snapQ = useAtBlock(['account', account], (c, b) => readAccount(c, account, b));
@@ -95,9 +96,10 @@ export function Account() {
   return (
     <>
       <header className="page-head">
+        <ChainBadge />
         <h1 className="t-display">The owner sets the allowance; the agent trades only inside it.</h1>
         <p className="lede">
-          Each trade event on this account names the model that decided it. Figures below are live reads from {chain.name}.
+          Each trade event on this account names the model that decided it. Figures below are live reads from {chain.name}; here the agent buys {ASSET_SYMBOL} with USDG.
         </p>
         <p className="small">
           Before the agent&apos;s key can sign, a contract verifies its Intel TDX quote against the code the owner approved.

@@ -1,12 +1,12 @@
 import { erc20Abi, type Address, type Hex, type PublicClient } from 'viem';
 import { accountAbi } from '../../abi/AgentAccount.generated';
-import { DEPLOY_BLOCK, GATEWAY_MEASUREMENT, USDG, WETH } from '../../chain';
+import { ASSET, DEPLOY_BLOCK, GATEWAY_MEASUREMENT, USDG } from '../../chain';
 
 export const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address;
 export const ZERO_HASH = `0x${'0'.repeat(64)}` as Hex;
 
-/** The tokens the account's pool pairs: Paxos USDG and WETH. */
-export const TOKENS = [USDG, WETH] as const;
+/** The tokens the account's pool pairs: USDG and the network's asset (WETH on Arbitrum, TSLA on Robinhood Chain). */
+export const TOKENS = [USDG, ASSET] as const;
 
 export type Limits = { allowed: boolean; perTrade: bigint; daily: bigint; approvalAbove: bigint };
 export type TokenRow = { address: Address; symbol: string; decimals: number; balance: bigint; limits: Limits; used: bigint };

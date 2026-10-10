@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { getAddress, isAddress } from 'viem';
 import { BrowserRouter, NavLink, Route, Routes, useSearchParams } from 'react-router-dom';
-import { ACCOUNT, chain, explorer, wagmiConfig } from './chain';
+import { ACCOUNT, chain, explorer, net, otherNet, hrefFor, wagmiConfig } from './chain';
+import { ChainSwitch } from './components/ChainSwitch';
 import { Wallet } from './components/Wallet';
 import { TxStatusPanel } from './components/TxStatus';
 import { Account } from './pages/Account';
@@ -20,10 +21,11 @@ function Footer() {
   return (
     <footer className="foot">
       <span>
-        Chiron on {chain.name}, chain {chain.id}. Every figure is a chain read at the block shown beside it.
+        Chiron on {chain.name}, chain {chain.id}. Every figure is a chain read at the block shown beside it.{' '}
+        The same account contract is live on <a href={hrefFor(otherNet.key)}>{otherNet.name}</a>.
       </span>
       <a href={explorer.address(account)} target="_blank" rel="noreferrer">
-        The deployed account on the explorer
+        The deployed account on {net.explorerName}
       </a>
     </footer>
   );
@@ -47,6 +49,7 @@ function Header() {
       <NavLink to="/" className="wordmark">
         CHIRON
       </NavLink>
+      <ChainSwitch />
       <Wallet />
     </header>
   );
