@@ -1,18 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  decodeFunctionData,
-  keccak256,
-  toFunctionSelector,
-  toHex,
-  type Address,
-  type Hex,
-  type PublicClient,
-} from 'viem';
+import { decodeErrorResult, decodeFunctionData, parseEventLogs, toFunctionSelector, type Address, type Hex, type PublicClient } from 'viem';
 import { usePublicClient } from 'wagmi';
-import { rhcChain } from '../../chain';
+import { archive, BLOCKSCOUT_API, chain, DEPLOY_BLOCK, modelName } from '../../chain';
 import { accountAbi } from '../../abi/AgentAccount.generated';
 import { fmtToken, fmtWhen, short } from '../../lib/format';
-import { LEGACY_ACCOUNT, MODEL_ID, RHC_DEPLOY_BLOCK, RHC_EXPLORER_URL, RHC_REFUSAL_TXS } from '../../lib/rhc.generated';
 
 export type GateRow = {
   key: string;
@@ -30,7 +21,7 @@ export type GateRow = {
 
 export type TokenInfo = { address: Address; symbol: string; decimals: number };
 
-/** One reverted transaction to the account, as the explorer indexes it. */
+/** One reverted transaction to the account. */
 export type Refusal = {
   hash: Hex;
   block: bigint;
@@ -52,11 +43,7 @@ export type AccountLog = {
   transactionHash: Hex;
 };
 
-const KNOWN_MODELS: Record<string, string> = Object.fromEntries(
-  [MODEL_ID, 'meta-llama/llama-3.3-70b-instruct', 'llama3-3-70b'].map((m) => [keccak256(toHex(m)).toLowerCase(), m]),
-);
-export const modelName = (hash: string) => KNOWN_MODELS[hash.toLowerCase()];
-const modelLabel = (hash: string) => (modelName(hash) ? `${modelName(hash)} (${short(hash)})` : `hash ${short(hash)}`);
+export const modelLabel = (hash: string) => (modelName(hash) ? `${modelName(hash)} (${short(hash)})` : `hash ${short(hash)}`);
 
 const ERROR_SELECTORS = new Map<string, { name: string; argNames: string[] }>(
   accountAbi
@@ -70,12 +57,14 @@ const ERROR_SELECTORS = new Map<string, { name: string; argNames: string[] }>(
 /** The custom error a revert selector names in the account's ABI, or undefined. */
 export const decodeRevertSelector = (selector: string) => ERROR_SELECTORS.get(selector.toLowerCase());
 
-const REFUSAL_GLOSS: Record<string, string> = {
-  NotAgent: 'Caller is not the registered agent',
+export const REFUSAL_GLOSS: Record<string, string> = {
+  NotAgent: 'Caller is not the admitted agent',
   ExceedsPerTradeCap: 'Trade above the per-trade cap',
   DailyCapExceeded: 'Trade above the daily cap',
   NeedsApproval: 'Trade above the approval line, the owner decides',
-  MeasurementNotApproved: 'Measurement the owner has not approved',
+  MeasurementNotApproved: 'Code the owner has not approved',
+  StaleRefBlock: 'Quote bound to a block more than 256 blocks old',
+  QuoteAlreadyUsed: 'Quote already spent once',
   ModelMismatch: 'Served model differs from the owner pin',
   ProposalNotPending: 'Proposal already settled',
   ProposalExpired: 'Proposal lifetime ran out',
@@ -83,8 +72,9 @@ const REFUSAL_GLOSS: Record<string, string> = {
   PoolNotAllowed: 'Pool outside the owner allow list',
   TokenNotAllowed: 'Token the owner has not allowed',
   IsPaused: 'Account paused by the owner',
-  ReceiptInvalid: 'Receipt did not verify',
-  CorporateActionPending: 'Stock Token corporate action pending, agent stays out',
+  ReceiptInvalid: 'Model receipt did not verify',
+  ReceiptAlreadyUsed: 'Model receipt already spent',
+  AgentIsOwner: 'Agent key is the owner key',
 };
 
 const tokenOf = (tokens: TokenInfo[], a: string) => tokens.find((t) => t.address.toLowerCase() === a.toLowerCase());
@@ -93,7 +83,7 @@ const amount = (tokens: TokenInfo[], a: string, v: bigint) => {
   return t ? `${fmtToken(v, t.decimals)} ${t.symbol}` : `${v.toString()} of ${short(a)}`;
 };
 
-/** Trade summary from execute()/propose() calldata: "1.00 testUSDG into TSLA". Undefined for any other call. */
+/** Trade summary from execute()/propose() calldata: "1.00 USDG into WETH". Undefined for any other call. */
 function tradeFromInput(input: Hex, tokens: TokenInfo[]): string | undefined {
   try {
     const d = decodeFunctionData({ abi: accountAbi, data: input });
@@ -143,7 +133,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
         rows.push({
           ...base,
           title: `${via ? `Proposal ${a.proposalId} approved: ` : ''}${amount(tokens, a.tokenIn, a.amountIn)} into ${amount(tokens, a.tokenOut, a.amountOut)}`,
-          sub: `Trade ${a.tradeId} · served model ${modelLabel(a.servedModelHash)} recorded`,
+          sub: `Trade ${a.tradeId} · model ${modelLabel(a.servedModelHash)}`,
           tag: via ? 'APPROVED' : 'EXECUTED',
           receipt: {
             requestHash: a.requestHash,
@@ -157,7 +147,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
       case 'TradeProposed': {
         const t = a.trade as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean; amountIn: bigint };
         const from = t.zeroForOne ? t.key.currency0 : t.key.currency1;
-        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · served model ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED' });
+        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · model ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED' });
         break;
       }
       case 'TradeRejected':
@@ -167,16 +157,16 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
         rows.push({ ...base, title: `Proposal ${a.proposalId} cancelled`, sub: 'Closed without a trade', tag: 'CANCELLED' });
         break;
       case 'AgentRegistered':
-        rows.push({ ...base, title: `Agent ${short(a.agent)} admitted`, sub: `Measurement ${short(a.measurement)} · key expires ${fmtWhen(a.expiry)}`, tag: 'ADMITTED' });
+        rows.push({ ...base, title: `Agent ${short(a.agent)} admitted: its Intel TDX quote verified on chain`, sub: `Code ${short(a.measurement)} · key expires ${fmtWhen(a.expiry)}`, tag: 'ADMITTED' });
         break;
       case 'AgentRevoked':
-        rows.push({ ...base, title: `Agent ${short(a.agent)} revoked`, sub: 'Its measurement is no longer trusted', tag: 'REVOKED' });
+        rows.push({ ...base, title: `Agent ${short(a.agent)} revoked`, sub: 'Its key can no longer trade', tag: 'REVOKED' });
         break;
       case 'MeasurementSet':
-        rows.push({ ...base, title: `Measurement ${short(a.measurement)} ${a.approved ? 'approved' : 'withdrawn'} by the owner`, sub: a.approved ? 'A quote carrying it can admit an agent' : 'No quote carrying it is admitted', tag: a.approved ? 'TRUSTED' : 'UNTRUSTED' });
+        rows.push({ ...base, title: `Owner ${a.approved ? 'approved' : 'withdrew'} code ${short(a.measurement)}`, sub: a.approved ? 'An agent running it can be admitted' : 'An agent running it is turned away', tag: a.approved ? 'APPROVED CODE' : 'WITHDRAWN' });
         break;
       case 'ModelSet':
-        rows.push({ ...base, title: `Model pinned: ${modelName(a.requestedModelHash) ?? short(a.requestedModelHash)}`, sub: `Pin ${short(a.requestedModelHash)}, every trade's served model must match it`, tag: 'PINNED' });
+        rows.push({ ...base, title: `Model pinned: ${modelName(a.requestedModelHash) ?? short(a.requestedModelHash)}`, sub: 'Every trade must carry a receipt from this model', tag: 'PINNED' });
         break;
     }
   }
@@ -184,83 +174,90 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
   return rows.sort((x, y) => (x.block === y.block ? y.order - x.order : x.block < y.block ? 1 : -1));
 }
 
-const API = `${RHC_EXPLORER_URL}/api/v2`;
-const getJson = async (url: string) => {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`explorer ${r.status}`);
-  return r.json();
-};
-
-type BsTx = {
-  hash: Hex;
-  status: string;
-  block_number: number;
-  position: number;
-  timestamp: string;
-  method: string | null;
-  from: { hash: Address };
-  raw_input: Hex;
-  revert_reason?: { method_id?: string; parameters?: { name: string; value: unknown }[] } | null;
-};
-
-/**
- * Reverted calls to the account. A reverted transaction emits no log, so the explorer's index is the
- * only enumeration; each hash is then read in full (revert selector, parameters, calldata).
- * `seeds` are hashes the deployment record names, fetched even if the index misses them.
- */
-export async function readRefusals(account: Address, seeds: readonly Hex[]): Promise<Refusal[]> {
-  const hashes = new Set<string>(seeds.map((h) => h.toLowerCase()));
-  let url: string | undefined = `${API}/addresses/${account}/transactions?filter=to`;
-  for (let page = 0; url && page < 5; page++) {
-    const j: { items: { hash: Hex; status: string }[]; next_page_params: Record<string, string> | null } = await getJson(url);
-    for (const t of j.items) if (t.status === 'error') hashes.add(t.hash.toLowerCase());
-    url = j.next_page_params ? `${API}/addresses/${account}/transactions?filter=to&${new URLSearchParams(j.next_page_params)}` : undefined;
+/** Revert data of a mined, reverted call: replayed one block before it on the archive node. */
+export async function replayRevert(tx: { from: Address; to: Address | null; input: Hex; value: bigint }, block: bigint): Promise<Hex | undefined> {
+  try {
+    await archive.call({ account: tx.from, to: tx.to ?? undefined, data: tx.input, value: tx.value, blockNumber: block - 1n });
+  } catch (e) {
+    for (let cur = e as { data?: unknown; cause?: unknown } | undefined; cur; cur = cur.cause as typeof cur) {
+      if (typeof cur.data === 'string' && cur.data.startsWith('0x') && cur.data.length >= 10) return cur.data as Hex;
+    }
   }
-  const txs: BsTx[] = await Promise.all([...hashes].map((h) => getJson(`${API}/transactions/${h}`)));
-  return txs
-    .filter((t) => t.status === 'error')
-    .map((t) => ({
-      hash: t.hash,
-      block: BigInt(t.block_number),
-      position: t.position,
-      time: BigInt(Math.floor(Date.parse(t.timestamp) / 1000)),
-      from: t.from.hash,
-      method: t.method ?? 'call',
-      selector: t.revert_reason?.method_id ? (`0x${t.revert_reason.method_id.replace(/^0x/, '')}` as Hex) : undefined,
-      errorArgs: (t.revert_reason?.parameters ?? []).map((p) => ({ name: p.name, value: String(p.value) })),
-      input: t.raw_input,
-    }));
+  return undefined;
+}
+
+/** A reverted call decoded against the account ABI. */
+export async function readRefusal(c: PublicClient, hash: Hex): Promise<Refusal> {
+  const [tx, rc] = await Promise.all([c.getTransaction({ hash }), c.getTransactionReceipt({ hash })]);
+  const [data, blk] = await Promise.all([replayRevert(tx, rc.blockNumber), c.getBlock({ blockNumber: rc.blockNumber })]);
+  let errorArgs: Refusal['errorArgs'] = [];
+  if (data) {
+    try {
+      const err = decodeErrorResult({ abi: accountAbi, data });
+      const names = decodeRevertSelector(data.slice(0, 10))?.argNames ?? [];
+      errorArgs = (err.args ?? []).map((v, i) => ({ name: names[i] ?? `arg${i}`, value: String(v) }));
+    } catch {
+      // revert data outside the account ABI: the row says so
+    }
+  }
+  let method = 'call';
+  try {
+    method = decodeFunctionData({ abi: accountAbi, data: tx.input }).functionName;
+  } catch {
+    // not an account function
+  }
+  return { hash, block: rc.blockNumber, position: rc.transactionIndex, time: blk.timestamp, from: tx.from, method, selector: data?.slice(0, 10) as Hex | undefined, errorArgs, input: tx.input };
+}
+
+/** Reverted calls to the account: Blockscout's index enumerates them (a revert emits no log), the chain decodes them. */
+export async function readRefusals(c: PublicClient, account: Address): Promise<Refusal[]> {
+  const hashes: Hex[] = [];
+  let url: string | undefined = `${BLOCKSCOUT_API}/addresses/${account}/transactions?filter=to`;
+  for (let page = 0; url && page < 5; page++) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Blockscout ${r.status}`);
+    const j: { items: { hash: Hex; status: string }[]; next_page_params: Record<string, string> | null } = await r.json();
+    for (const t of j.items) if (t.status === 'error') hashes.push(t.hash);
+    url = j.next_page_params ? `${BLOCKSCOUT_API}/addresses/${account}/transactions?filter=to&${new URLSearchParams(j.next_page_params)}` : undefined;
+  }
+  return Promise.all(hashes.map((h) => readRefusal(c, h)));
 }
 
 const blockTimes = new Map<bigint, bigint>();
 async function timesFor(c: PublicClient, blocks: bigint[]) {
-  await Promise.all(
-    blocks.filter((b) => !blockTimes.has(b)).map(async (b) => blockTimes.set(b, (await c.getBlock({ blockNumber: b })).timestamp)),
-  );
+  await Promise.all(blocks.filter((b) => !blockTimes.has(b)).map(async (b) => blockTimes.set(b, (await c.getBlock({ blockNumber: b })).timestamp)));
   return blockTimes;
 }
 
 export type GateLogData = { head: bigint; logs: AccountLog[]; times: Map<bigint, bigint>; refusals: Refusal[]; refusalsError?: string };
 
-/** Every account event from the deploy block to the head (bounded getLogs), plus the reverted calls. */
+/** Every account event from the deploy block to the head (one bounded getLogs), plus the reverted calls. */
 export function useGateLog(account: Address) {
-  const client = usePublicClient({ chainId: rhcChain.id });
+  const client = usePublicClient({ chainId: chain.id });
   return useQuery({
     queryKey: ['gatelog', account],
     enabled: !!client,
-    refetchInterval: 15_000,
+    refetchInterval: 20_000,
     retry: 1,
     queryFn: async (): Promise<GateLogData> => {
       const c = client as PublicClient;
       const head = await c.getBlockNumber();
-      const logs = (await c.getContractEvents({ address: account, abi: accountAbi, fromBlock: RHC_DEPLOY_BLOCK, toBlock: head })) as unknown as AccountLog[];
-      const seeds = account.toLowerCase() === LEGACY_ACCOUNT.toLowerCase() ? RHC_REFUSAL_TXS : [];
-      const refusalsP = readRefusals(account, seeds).then(
+      const refusalsP = readRefusals(c, account).then(
         (refusals) => ({ refusals, refusalsError: undefined as string | undefined }),
         (e: unknown) => ({ refusals: [] as Refusal[], refusalsError: e instanceof Error ? e.message : String(e) }),
       );
+      // Unfiltered getLogs. getContractEvents sends every event topic in one OR, and this RPC rejects that body.
+      const raw = await c.getLogs({ address: account, fromBlock: DEPLOY_BLOCK, toBlock: head });
+      const logs = parseEventLogs({ abi: accountAbi, logs: raw }) as unknown as AccountLog[];
       const times = await timesFor(c, [...new Set(logs.map((l) => l.blockNumber))]);
-      return { head, logs, times, ...(await refusalsP) };
+      // ponytail: one hung archive replay must not block the trade list. Drop refusals after 12s.
+      const refusals = await Promise.race([
+        refusalsP,
+        new Promise<{ refusals: Refusal[]; refusalsError: string }>((resolve) => {
+          setTimeout(() => resolve({ refusals: [], refusalsError: 'refusal index timed out' }), 12_000);
+        }),
+      ]);
+      return { head, logs, times, ...refusals };
     },
   });
 }

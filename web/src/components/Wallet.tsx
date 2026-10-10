@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from 'wagmi';
-import { assayChain, chainForPath } from '../chain';
+import { chain as appChain } from '../chain';
 
 /** Curated EIP-6963 wallets only, in presentation order. Anything else the browser
  * announces is hidden so the menu never becomes a phishing list. */
@@ -64,7 +63,7 @@ export function Wallet() {
   const { mutate: switchChain } = useSwitchChain();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const target = chainForPath(useLocation().pathname);
+  const target = appChain;
 
   const allowed = filterAllowedConnectors(connectors);
 
@@ -148,7 +147,7 @@ export function Wallet() {
 }
 
 /** True when a wallet is connected on `chain` (Arbitrum Sepolia 421614 unless the caller names another). */
-export function useOnChain(chain: { id: number; name: string } = assayChain): { address?: `0x${string}`; ready: boolean; reason?: string } {
+export function useOnChain(chain: { id: number; name: string } = appChain): { address?: `0x${string}`; ready: boolean; reason?: string } {
   const conn = useConnection();
   if (!conn.isConnected) return { ready: false, reason: 'Connect a wallet to continue.' };
   if (conn.chainId !== chain.id)

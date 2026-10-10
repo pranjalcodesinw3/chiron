@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { erc20Abi, formatUnits, isHex, parseUnits, type Address, type Hex } from 'viem';
-import { useConnection, usePublicClient, useReadContract, useWriteContract } from 'wagmi';
-import { rhcChain, rhcExplorer } from '../../chain';
+import { useConnection, useReadContract, useWriteContract } from 'wagmi';
+import { chain as appChain, explorer, GATEWAY_MEASUREMENT } from '../../chain';
 import { accountAbi } from '../../abi/AgentAccount.generated';
-import { Code, HexValue, Num, Spec, Fact } from '../../components/Stamp';
+import { Code, HexValue, Spec, Fact } from '../../components/Stamp';
 import { useOnChain } from '../../components/Wallet';
 import { useTx } from '../../hooks/useTx';
-import { EligibilityGate } from '../../components/Eligibility';
 import { fmtCountdown, fmtToken, short } from '../../lib/format';
-import { GATEWAY_MEASUREMENT, OPERATOR_CVM_URL } from '../../lib/rhc.generated';
-import { readOperatorQuote, type OperatorQuote } from './operator';
 import type { Snapshot, TokenRow } from './read';
 
 const parse = (v: string, decimals: number): bigint | null => {
@@ -36,7 +33,7 @@ function TokenPick({ tokens, value, onChange }: { tokens: TokenRow[]; value: num
 type Ctx = { snap: Snapshot; refetch: () => void };
 
 function useGate(snap: Snapshot) {
-  const chain = useOnChain(rhcChain);
+  const chain = useOnChain(appChain);
   const isOwner = !!chain.address && chain.address.toLowerCase() === snap.owner.toLowerCase();
   const reason = !chain.ready ? chain.reason : !isOwner ? `This wallet is not the owner of this account. The owner is ${short(snap.owner)}.` : undefined;
   return { chain, isOwner, ownerReason: reason, anyReason: chain.ready ? undefined : chain.reason };
@@ -52,7 +49,7 @@ function FundsStep({ snap, refetch }: Ctx) {
   const wei = parse(amount, t.decimals);
   const walletBal = useReadContract({
     address: t.address, abi: erc20Abi, functionName: 'balanceOf', args: chain.address ? [chain.address] : undefined,
-    chainId: rhcChain.id, query: { enabled: !!chain.address, refetchInterval: 15_000 },
+    chainId: appChain.id, query: { enabled: !!chain.address, refetchInterval: 15_000 },
   });
   const amountOk = wei !== null && wei > 0n;
   const canDeposit = !anyReason && amountOk && walletBal.data !== undefined && wei <= walletBal.data;
@@ -61,7 +58,6 @@ function FundsStep({ snap, refetch }: Ctx) {
 
   return (
     <li className="step" aria-labelledby="o-funds">
-      <Num n={1} mark="plain" />
       <div className="step-body">
         <h3 id="o-funds" className="t-section">Deposit and withdraw</h3>
         <p className="prose">Anyone may send tokens to the account. Only the owner can take them out, and withdrawals go to the owner&apos;s wallet.</p>
@@ -80,16 +76,16 @@ function FundsStep({ snap, refetch }: Ctx) {
         {!anyReason && ownerReason && <p className="note">Deposit is open to any wallet. Withdraw: {ownerReason}</p>}
         <div className="actions">
           <button className="btn" type="button" disabled={!canDeposit || tx.busy}
-            onClick={() => tx.run(`Deposit ${t.symbol}`, () => writeContractAsync({ address: t.address, abi: erc20Abi, functionName: 'transfer', args: [snap.account, wei as bigint], chainId: rhcChain.id }))}>
+            onClick={() => tx.run(`Deposit ${t.symbol}`, () => writeContractAsync({ address: t.address, abi: erc20Abi, functionName: 'transfer', args: [snap.account, wei as bigint], chainId: appChain.id }))}>
             Deposit
           </button>
           <button className="btn line" type="button" disabled={!canWithdraw || tx.busy}
-            onClick={() => tx.run(`Withdraw ${t.symbol}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'withdraw', args: [t.address, to, wei as bigint], chainId: rhcChain.id }))}>
+            onClick={() => tx.run(`Withdraw ${t.symbol}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'withdraw', args: [t.address, to, wei as bigint], chainId: appChain.id }))}>
             Withdraw to owner
           </button>
           {/USDG/.test(t.symbol) && (
             <a className="textbtn" href="https://faucet.paxos.com/" target="_blank" rel="noreferrer">
-              Get Paxos USDG on Robinhood Chain testnet
+              Paxos USDG faucet
             </a>
           )}
         </div>
@@ -145,7 +141,7 @@ function CapsForm({ snap, refetch, t }: Ctx & { t: TokenRow }) {
         <button className="btn" type="button" disabled={!!ownerReason || !!bad || tx.busy}
           onClick={() => tx.run(`Set ${t.symbol} caps`, () => writeContractAsync({
             address: snap.account, abi: accountAbi, functionName: 'setLimits',
-            args: [t.address, { allowed, perTrade: p as bigint, daily: d as bigint, approvalAbove: a as bigint }], chainId: rhcChain.id,
+            args: [t.address, { allowed, perTrade: p as bigint, daily: d as bigint, approvalAbove: a as bigint }], chainId: appChain.id,
           }))}>
           Set caps
         </button>
@@ -159,7 +155,6 @@ function CapsStep({ snap, refetch }: Ctx) {
   const t = snap.tokens[i];
   return (
     <li className="step" aria-labelledby="o-caps">
-      <Num n={2} mark="plain" />
       <div className="step-body">
         <h3 id="o-caps" className="t-section">Set caps</h3>
         <p className="prose">Caps are in the units of the token that leaves the account. A token with trading not allowed cannot be bought or sold.</p>
@@ -179,23 +174,22 @@ function MeasurementStep({ snap, refetch }: Ctx) {
   const listed = valid && snap.approved.some((x) => x.toLowerCase() === m.trim().toLowerCase());
   const send = (approved: boolean) =>
     tx.run(approved ? 'Approve measurement' : 'Withdraw approval', () =>
-      writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'setMeasurement', args: [m.trim() as Hex, approved], chainId: rhcChain.id }));
+      writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'setMeasurement', args: [m.trim() as Hex, approved], chainId: appChain.id }));
   return (
     <li className="step" aria-labelledby="o-meas">
-      <Num n={3} mark="plain" />
       <div className="step-body">
-        <h3 id="o-meas" className="t-section">Approve a measurement</h3>
+        <h3 id="o-meas" className="t-section">Approve code</h3>
         <p className="prose">
-          An agent key is admitted only when its quote carries an approved measurement. Withdrawing approval for the measurement the
-          current agent was admitted under revokes that agent at once.
+          An agent key is admitted only when its Intel TDX quote carries a measurement, the hash of the code it runs, that is on this
+          list. Withdrawing the measurement the current agent runs revokes that agent at once.
         </p>
         <div className="fields">
           <div className="field">
             <label className="label" htmlFor="m-hash">Measurement, bytes32</label>
             <input id="m-hash" className="hexin" value={m} onChange={(e) => setM(e.target.value)} placeholder="0x…" spellCheck={false} aria-invalid={m !== '' && !valid} />
             <span className="hint">
-              {valid ? (listed ? 'Approved on this account now.' : 'Not approved on this account now.') : 'Read it from a quote with Verifier.verify, or take the one the refused quote carried.'}{' '}
-              <button type="button" className="textbtn" onClick={() => setM(GATEWAY_MEASUREMENT)}>Use the refused quote&apos;s measurement</button>
+              {valid ? (listed ? 'Approved on this account now.' : 'Not approved on this account now.') : 'The 32-byte measurement from the agent\'s TDX quote.'}{' '}
+              <button type="button" className="textbtn" onClick={() => setM(GATEWAY_MEASUREMENT)}>Use Phala&apos;s gateway measurement</button>
             </span>
           </div>
         </div>
@@ -209,81 +203,6 @@ function MeasurementStep({ snap, refetch }: Ctx) {
   );
 }
 
-function OperatorStep({ snap, refetch }: Ctx) {
-  const { ownerReason, anyReason } = useGate(snap);
-  const client = usePublicClient({ chainId: rhcChain.id });
-  const [url, setUrl] = useState<string>(OPERATOR_CVM_URL);
-  const [read, setRead] = useState<OperatorQuote | null>(null);
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-  const tx = useTx(refetch);
-  const { writeContractAsync } = useWriteContract();
-  const approved = !!read && snap.approved.some((x) => x.toLowerCase() === read.measurement.toLowerCase());
-  const admitted = !!read && snap.agent.toLowerCase() === read.agent.toLowerCase();
-  const check = async () => {
-    if (!client) return;
-    setBusy(true);
-    setErr('');
-    try {
-      setRead(await readOperatorQuote(client as never, url, snap.account));
-    } catch (e) {
-      setRead(null);
-      setErr(e instanceof Error ? e.message.split('\n')[0] : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-  // A quote names a block hash the chain answers for only 256 blocks, so admission fetches a fresh one.
-  const admit = () =>
-    tx.run('Admit the operator agent', async () => {
-      const fresh = await readOperatorQuote(client as never, url, snap.account);
-      return writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'registerAgent', args: [fresh.quote, fresh.refBlock], chainId: rhcChain.id });
-    });
-  return (
-    <li className="step" aria-labelledby="o-op">
-      <Num n={4} mark="plain" />
-      <div className="step-body">
-        <h3 id="o-op" className="t-section">Admit an operator&apos;s agent</h3>
-        <p className="prose">
-          One operator runs one attested agent for many accounts. Its CVM signs a quote over this account&apos;s own nonce, the Stylus
-          Verifier reads the key and the measurement out of it, you approve the measurement, and anyone can submit the admission. The
-          agent then trades this account only inside this account&apos;s caps, and withdrawing the approval here touches no other account.
-        </p>
-        <div className="fields">
-          <div className="field">
-            <label className="label" htmlFor="op-url">Operator CVM</label>
-            <input id="op-url" value={url} onChange={(e) => { setUrl(e.target.value); setRead(null); }} spellCheck={false} />
-            <span className="hint">Prefilled with the Chiron operator CVM on Phala Cloud.</span>
-          </div>
-        </div>
-        <div className="actions">
-          <button className="btn line" type="button" disabled={busy || !url.trim()} onClick={check}>{busy ? 'Reading the quote' : 'Read its quote'}</button>
-        </div>
-        {err && <p className="note warn">{err}</p>}
-        {read && (
-          <>
-            <Spec subject={<span className="t-subject">Operator agent</span>}>
-              <Fact label="Agent key"><HexValue value={read.agent} href={rhcExplorer.address(read.agent)} /></Fact>
-              <Fact label="Measurement"><HexValue value={read.measurement} head={8} tail={4} /></Fact>
-              <Fact label="On this account" wide>{admitted ? 'admitted now' : approved ? 'measurement approved, agent not admitted' : 'measurement not approved'}</Fact>
-            </Spec>
-            {ownerReason && !approved && <p className="note">{ownerReason}</p>}
-            <div className="actions">
-              <button className="btn" type="button" disabled={!!ownerReason || approved || tx.busy}
-                onClick={() => tx.run('Approve the operator measurement', () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'setMeasurement', args: [read.measurement, true], chainId: rhcChain.id }))}>
-                {approved ? 'Measurement approved' : 'Approve this measurement'}
-              </button>
-              <button className="btn" type="button" disabled={!!anyReason || !approved || tx.busy} onClick={admit}>
-                {admitted ? 'Renew the admission' : 'Admit the agent'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </li>
-  );
-}
-
 function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
   const { ownerReason } = useGate(snap);
   const tx = useTx(refetch);
@@ -292,7 +211,6 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
   const tok = (a: Address) => snap.tokens.find((t) => t.address.toLowerCase() === a.toLowerCase());
   return (
     <li className="step" aria-labelledby="o-pend">
-      <Num n={5} mark="plain" />
       <div className="step-body">
         <h3 id="o-pend" className="t-section">Approve or reject a pending trade</h3>
         <p className="prose">
@@ -318,11 +236,11 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
                   action={
                     <span className="actions">
                       <button className="btn" type="button" disabled={!!ownerReason || left < 0 || tx.busy}
-                        onClick={() => tx.run(`Approve proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'approveTrade', args: [p.id, p.trade], chainId: rhcChain.id }))}>
+                        onClick={() => tx.run(`Approve proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'approveTrade', args: [p.id, p.trade], chainId: appChain.id }))}>
                         Approve
                       </button>
                       <button className="btn line" type="button" disabled={!!ownerReason || tx.busy}
-                        onClick={() => tx.run(`Reject proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'rejectTrade', args: [p.id], chainId: rhcChain.id }))}>
+                        onClick={() => tx.run(`Reject proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'rejectTrade', args: [p.id], chainId: appChain.id }))}>
                         Reject
                       </button>
                     </span>
@@ -350,18 +268,15 @@ export function OwnerActions({ snap, refetch, now }: Ctx & { now: bigint }) {
         <span className="stamp">{conn.isConnected ? 'wallet connected' : 'connect a wallet to act'}</span>
       </div>
       <p className="section-intro">
-        Each action is a transaction from the connected wallet to <HexValue value={snap.account} head={6} tail={4} href={rhcExplorer.address(snap.account)} />.
+        Each action is a transaction from the connected wallet to <HexValue value={snap.account} head={6} tail={4} href={explorer.address(snap.account)} />.
         It reads as done only once the receipt says <Code>success</Code>, and the sheet above re-reads the chain afterwards.
       </p>
-      <EligibilityGate>
       <ol className="steps">
         <FundsStep snap={snap} refetch={refetch} />
         <CapsStep snap={snap} refetch={refetch} />
         <MeasurementStep snap={snap} refetch={refetch} />
-        <OperatorStep snap={snap} refetch={refetch} />
         <PendingStep snap={snap} refetch={refetch} now={now} />
       </ol>
-      </EligibilityGate>
     </section>
   );
 }

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { decodeFunctionData, type Address, type Hex, type PublicClient } from 'viem';
 import { usePublicClient } from 'wagmi';
-import { rhcChain } from '../../chain';
+import { chain } from '../../chain';
 import { accountAbi } from '../../abi/AgentAccount.generated';
 import { checkReceipt, receiptKey, type Check } from '../../lib/receipt';
 import type { AccountLog, GateRow } from './gateRows';
@@ -38,7 +38,7 @@ export async function recheck(c: PublicClient, account: Address, row: GateRow, p
 
 /** Default is not-verified: a row shows verified only after every recomputed check passes. */
 export function useReceiptCheck(account: Address, row: GateRow, logs: AccountLog[]): ReceiptState | undefined {
-  const client = usePublicClient({ chainId: rhcChain.id });
+  const client = usePublicClient({ chainId: chain.id });
   const pin = latestPin(logs);
   const q = useQuery({
     queryKey: ['receipt-check', account, row.key],

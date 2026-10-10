@@ -1,36 +1,37 @@
 import { createConfig, http } from 'wagmi';
-import { defineChain, type Address } from 'viem';
-import { ASSAY_ADDRESS, ASSAY_DEPLOY_TX as ARB_DEPLOY_TX, CHAIN_ID, EXPLORER_URL, REGISTER_TX as ARB_REGISTER_TX, RPC_URL, USDG_ADDRESS as ARB_USDG } from './lib/addresses.generated';
-import { PAXOS_USDG, RHC_CHAIN_ID, RHC_EXPLORER_URL, USDG_ASSAY, USDG_ASSAY_DEPLOY_TX, USDG_ASSAY_REGISTER_TX } from './lib/rhc.generated';
+import { createPublicClient, defineChain, keccak256, toHex, type Address, type Hex } from 'viem';
 
-export const arbChain = defineChain({
-  id: CHAIN_ID as number,
+// The live deployment, contracts/deployments/421614-account.json (chain.test.ts holds these to that file).
+export const ACCOUNT: Address = '0x5EaE79705e7581709947930BaBE3a9Ba3d55164D';
+export const FACTORY: Address = '0xC767f515c0232572e0ADC78AF1098faa1c073347';
+export const VERIFIER: Address = '0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c';
+export const USDG: Address = '0xFFC95faa3d63Cde504a05B567C600B78C0b41892';
+export const WETH: Address = '0x980B62Da83eFf3D4576C647993b0c1D7faf17c73';
+export const DEPLOY_BLOCK = 315956395n;
+/** Phala's inference gateway measurement; the spike admitted a quote carrying it, then the owner withdrew it. */
+export const GATEWAY_MEASUREMENT: Hex = '0xfd34caabef222327146cb5c059810f08bf7c41adb6cc48312be21cc228020149';
+export const MODEL_ID = 'phala/qwen3.8-27b-uncensored';
+export const MODELS: Record<string, string> = { [keccak256(toHex(MODEL_ID))]: MODEL_ID };
+export const modelName = (hash: string) => MODELS[hash.toLowerCase()];
+
+const RPC = (import.meta.env.VITE_RPC_URL as string | undefined)?.trim() || 'https://sepolia-rollup.arbitrum.io/rpc';
+// Most Arbitrum Sepolia nodes prune old state; this gateway answers eth_call at any past block, so a mined
+// refusal can be replayed for its revert data.
+const ARCHIVE_RPC = 'https://arbitrum-sepolia.gateway.tenderly.co';
+
+export const chain = defineChain({
+  id: 421614,
   name: 'Arbitrum Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: [(import.meta.env.VITE_RPC_URL as string | undefined)?.trim() || RPC_URL] },
-  },
-  blockExplorers: { default: { name: 'Arbiscan', url: EXPLORER_URL } },
-  contracts: { multicall3: { address: '0xca11bde05977b3631167028862bE2a173976CA11' } },
-});
-
-/** Robinhood Chain testnet: where the agent account and its factory live (contracts/deployments/46630.json). */
-export const rhcChain = defineChain({
-  id: RHC_CHAIN_ID as number,
-  name: 'Robinhood Chain testnet',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: [(import.meta.env.VITE_RHC_RPC_URL as string | undefined)?.trim() || 'https://rpc.testnet.chain.robinhood.com'] },
-  },
-  blockExplorers: { default: { name: 'Blockscout (testnet)', url: RHC_EXPLORER_URL } },
+  rpcUrls: { default: { http: [RPC] } },
+  blockExplorers: { default: { name: 'Arbiscan', url: 'https://sepolia.arbiscan.io' } },
   contracts: { multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' } },
 });
 
 export const wagmiConfig = createConfig({
-  chains: [rhcChain, arbChain],
+  chains: [chain],
   multiInjectedProviderDiscovery: true,
-  // JSON-RPC batching: the home page fires many reads at once, and unbatched they queue behind the browser's per-host connection limit.
-  transports: { [rhcChain.id]: http(undefined, { batch: { batchSize: 30, wait: 16 } }), [arbChain.id]: http(undefined, { batch: { batchSize: 30, wait: 16 } }) },
+  transports: { [chain.id]: http(undefined, { batch: { batchSize: 30, wait: 16 } }) },
 });
 
 declare module 'wagmi' {
@@ -39,31 +40,14 @@ declare module 'wagmi' {
   }
 }
 
-const explorerAt = (url: string) => ({
-  address: (a: string) => `${url}/address/${a}`,
-  tx: (h: string) => `${url}/tx/${h}`,
-  block: (n: bigint | number) => `${url}/block/${n.toString()}`,
-});
-export const rhcExplorer = explorerAt(RHC_EXPLORER_URL);
+export const archive = createPublicClient({ chain, transport: http(ARCHIVE_RPC) });
 
-/// Assay is live on two networks. The Paxos USDG Assay on Robinhood Chain testnet is the default;
-/// `?net=arb` reads the Arbitrum Sepolia Assay, which holds the paid calls. Verifier, receipt
-/// verifier, measurement, validity and timeouts are the same on both (read from each constructor),
-/// so only the fields below differ. Chosen once per page load; the header's selector reloads.
-export type NetKey = 'rhc' | 'arb';
-const NETS = {
-  rhc: { key: 'rhc', chain: rhcChain, assay: USDG_ASSAY, usdg: PAXOS_USDG, deployTx: USDG_ASSAY_DEPLOY_TX, registerTx: USDG_ASSAY_REGISTER_TX, explorer: rhcExplorer, refWindow: 'about 39 seconds' },
-  arb: { key: 'arb', chain: arbChain, assay: ASSAY_ADDRESS, usdg: ARB_USDG, deployTx: ARB_DEPLOY_TX, registerTx: ARB_REGISTER_TX, explorer: explorerAt(EXPLORER_URL), refWindow: 'about 66 seconds' },
-} as const;
-export const NET_KEY: NetKey = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('net') === 'arb' ? 'arb' : 'rhc';
-export const assayNet = NETS[NET_KEY];
-export const otherNet = NETS[NET_KEY === 'rhc' ? 'arb' : 'rhc'];
-export const assayChain = assayNet.chain;
-export const ASSAY: Address = assayNet.assay;
-export const USDG_ADDRESS: Address = assayNet.usdg;
-export const ASSAY_DEPLOY_TX = assayNet.deployTx;
-export const REGISTER_TX = assayNet.registerTx;
-export const explorer = assayNet.explorer;
+/** Blockscout indexes reverted calls, which emit no log; it is the only way to enumerate them. */
+export const BLOCKSCOUT_API = 'https://arbitrum-sepolia.blockscout.com/api/v2';
 
-/** The agent account is the front page and always reads Robinhood Chain; the Assay routes read the selected network. */
-export const chainForPath = (pathname: string) => (pathname === '/' ? rhcChain : assayChain);
+const EXPLORER = 'https://sepolia.arbiscan.io';
+export const explorer = {
+  address: (a: string) => `${EXPLORER}/address/${a}`,
+  tx: (h: string) => `${EXPLORER}/tx/${h}`,
+  block: (n: bigint | number) => `${EXPLORER}/block/${n.toString()}`,
+};

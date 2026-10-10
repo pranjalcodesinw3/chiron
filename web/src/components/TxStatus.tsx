@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { assayChain, explorer, rhcChain, rhcExplorer } from '../chain';
+import { chain, explorer } from '../chain';
 import { shortAddr } from './Wallet';
 
 export type TxPhase = 'idle' | 'confirm' | 'pending' | 'confirmed' | 'failed';
@@ -34,8 +34,6 @@ export const useTxStatus = (): TxInfo => useSyncExternalStore(subscribe, () => c
 
 const shortReason = (r: string) => (r.length > 140 ? `${r.slice(0, 140)}...` : r);
 
-const txUrl = (chainId: number | undefined, hash: string) => (chainId === assayChain.id ? explorer.tx(hash) : rhcExplorer.tx(hash));
-export const chainName = (chainId: number | undefined) => (chainId === assayChain.id ? assayChain.name : rhcChain.name);
 
 /** Fixed bottom-right panel: confirm in wallet, pending with the explorer link, then confirmed or failed. */
 export function TxStatusPanel() {
@@ -71,8 +69,8 @@ export function TxStatusPanel() {
       <p className="tx-title">{title}</p>
       {tx.phase === 'confirmed' && tx.reason && <p className="tx-hash">{tx.reason}</p>}
       {tx.hash && tx.phase !== 'confirm' && (
-        <a className="tx-hash mono" href={txUrl(tx.chainId, tx.hash)} target="_blank" rel="noreferrer">
-          {shortAddr(tx.hash)} on {chainName(tx.chainId)}
+        <a className="tx-hash mono" href={explorer.tx(tx.hash)} target="_blank" rel="noreferrer">
+          {shortAddr(tx.hash)} on {chain.name}
         </a>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BaseError, ContractFunctionRevertedError, type Hash, type TransactionReceipt } from 'viem';
-import { useConnection, usePublicClient, useWriteContract } from 'wagmi';
-import { rhcChain } from '../chain';
+import { useConnection, usePublicClient } from 'wagmi';
+import { chain } from '../chain';
 import { setTxStatus } from '../components/TxStatus';
 
 export type TxState =
@@ -41,7 +41,7 @@ export async function landedDespiteError(readNonce: () => Promise<number>, befor
  * A returned hash is an accepted request, so "done" only appears once the receipt says success.
  * Every phase is mirrored to the shared transaction panel.
  */
-export function useTx(onDone: () => void, chainId: number = rhcChain.id) {
+export function useTx(onDone: () => void, chainId: typeof chain.id = chain.id) {
   const client = usePublicClient({ chainId });
   const conn = useConnection();
   const [state, setState] = useState<TxState>({ phase: 'idle' });
@@ -87,46 +87,4 @@ export function useTx(onDone: () => void, chainId: number = rhcChain.id) {
   }
 
   return { state, run, busy: state.phase === 'signing' || state.phase === 'mining', reset: () => setState({ phase: 'idle' }) };
-}
-
-const WRITE_LABELS: Record<string, string> = {
-  approve: 'Approve USDG',
-  openChannel: 'Open channel',
-  openChannelWithPermit: 'Open channel with permit',
-  requestClose: 'Request close',
-  finalizeClose: 'Finalize close',
-  redeem: 'Redeem',
-};
-
-type WriteArgs = Parameters<ReturnType<typeof useWriteContract>['writeContractAsync']>[0];
-
-/**
- * wagmi's writeContractAsync with the shared panel attached: the hash is reported as pending
- * until the receipt says success. Errors are rethrown so the caller's own error line still fires.
- */
-export function useTrackedWrite(chainId: number) {
-  const { writeContractAsync, isPending, data } = useWriteContract();
-  const client = usePublicClient({ chainId });
-  async function write(args: WriteArgs): Promise<Hash> {
-    const fn = (args as { functionName: string }).functionName;
-    const label = WRITE_LABELS[fn] ?? fn;
-    setTxStatus({ phase: 'confirm', label, chainId });
-    let hash: Hash | undefined;
-    try {
-      hash = await writeContractAsync(args);
-      setTxStatus({ phase: 'pending', label, chainId, hash });
-      if (!client) throw new Error('No chain client');
-      const receipt = await client.waitForTransactionReceipt({ hash, timeout: 90_000, retryCount: 8, pollingInterval: 1_500 });
-      if (receipt.status !== 'success') {
-        setTxStatus({ phase: 'failed', label, chainId, hash, reason: 'The transaction was mined and reverted.' });
-        throw new Error('The transaction was mined and reverted.');
-      }
-      setTxStatus({ phase: 'confirmed', label, chainId, hash });
-      return hash;
-    } catch (e) {
-      setTxStatus({ phase: 'failed', label, chainId, hash, reason: txMessage(e) });
-      throw e;
-    }
-  }
-  return { write, isPending, data };
 }

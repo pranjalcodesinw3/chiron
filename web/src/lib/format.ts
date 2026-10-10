@@ -1,10 +1,4 @@
 import { formatUnits } from 'viem';
-import { USDG_DECIMALS } from './addresses.generated';
-
-const usd6 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-/** USDG 6dp -> "100.00". */
-export const fmtUsdg = (v: bigint) => usd6.format(Number(formatUnits(v, USDG_DECIMALS)));
 
 export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
