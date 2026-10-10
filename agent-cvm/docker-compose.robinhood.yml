@@ -1,0 +1,17 @@
+# Robinhood Chain testnet (46630) variant of docker-compose.yml: same pinned image, measured the same
+# way; only the chain, account and RPC differ, so this compose hash (and RTMR3) names the network.
+# CHAIN_ID is set alongside CHAIN so images built before the CHAIN preset still sign for 46630.
+services:
+  agent:
+    image: ttl.sh/chiron-agent-5ee4c1c6b5d1@sha256:01f1867126d58ee3e99cf1fef4fc8d253c68dbe5bed41db6eb3f33aa5a201463
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      CHAIN: "robinhood-testnet"
+      CHAIN_ID: "46630"
+      ACCOUNT_ADDRESS: "0xFaaAa4d1ee944d317b10233505D8c57425C53b55"
+      RPC_URL: "https://rpc.testnet.chain.robinhood.com"
+      CONTROL_TOKEN: "${CONTROL_TOKEN}"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock

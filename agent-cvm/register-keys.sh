@@ -1,6 +1,6 @@
 #!/bin/bash
 # Re-registers Phala's gateway signer and receipt key (24h attestationValidity) on every Assay the
-# product reads: the Arbitrum Sepolia Assay on Paxos USDG. Every pass runs even if an earlier one
+# product reads: the Arbitrum Sepolia Assay and the Robinhood Chain testnet Assays (Paxos USDG and testUSDG). Every pass runs even if an earlier one
 # fails; the job exits non-zero if any pass failed. Installed at ~/.local/share/chiron-keeper/register.sh
 # (launchd cannot read ~/Desktop); ARB_RPC_URL in that directory's .env overrides the Arbitrum RPC.
 set -uo pipefail
@@ -10,6 +10,7 @@ LOG="$KEEP/register.log"
 cd "$KEEP/agent"
 set -a; . "$KEEP/.env"; set +a
 ASSAY=0x2C8B2587AC69BB7bB804ced9ebC2c08D0EEFB6c4
+RHC=https://rpc.testnet.chain.robinhood.com
 failed=0
 
 pass() {
@@ -21,6 +22,8 @@ pass() {
   [ "$rc" -eq 0 ] || failed=1
 }
 
-pass "Arbitrum Sepolia" CHAIN_ID=421614 RPC_URL="${ARB_RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}" ASSAY_ADDRESS=$ASSAY
+pass "Arbitrum Sepolia" CHAIN=arbitrum-sepolia CHAIN_ID=421614 RPC_URL="${ARB_RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}" ASSAY_ADDRESS=$ASSAY
+pass "RH 46630 USDG Assay" CHAIN=robinhood-testnet CHAIN_ID=46630 RPC_URL="${RHC_RPC_URL:-$RHC}" ASSAY_ADDRESS=0xcF4a98E21D4180b32B9726ef3d0A550A69973f9d
+pass "RH 46630 testUSDG Assay" CHAIN=robinhood-testnet CHAIN_ID=46630 RPC_URL="${RHC_RPC_URL:-$RHC}" ASSAY_ADDRESS=0x2176E7f20654C8747Fa37b3d96E1ACbf7Df55b5D
 echo "job exit=$failed" >> "$LOG"
 exit $failed
