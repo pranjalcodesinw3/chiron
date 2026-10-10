@@ -83,6 +83,24 @@ The payer is the account owner: an agent operator running an attested agent for 
 
 
 
+## Robinhood Chain track
+
+Chiron is dual-listed: the same `AgentAccount`, Stylus `Verifier` and receipt check run on Robinhood Chain testnet (46630) and Arbitrum Sepolia (421614). On Robinhood Chain the agent buys Robinhood's official TSLA Stock Token through the canonical Uniswap v4 PoolManager, inside caps the owner sets, and only after the Stylus Verifier admits its Intel TDX quote.
+
+- App on Robinhood Chain: [chiron-receipts.vercel.app/?chain=robinhood](https://chiron-receipts.vercel.app/?chain=robinhood). The header switch flips between Robinhood Chain and Arbitrum; every figure is a live read from the selected chain, and each trade row rechecks its inference receipt in the browser.
+- One switch everywhere: `CHAIN=robinhood-testnet` (or `arbitrum-sepolia`, the default) selects RPC, account, Assay, USDG, the traded asset and the v4 quoter for the agent CLI, the keeper (`agent-cvm/keeper.sh`) and Assay key registration; `agent-cvm/docker-compose.robinhood.yml` measures the CVM for 46630; the MCP server takes `chain` on every tool (`verify_receipt`, `account_state`, `explain_refusal`).
+- Account: [`0x9c69...Aa6D`](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D) (3 trades executed).
+
+| What | Transaction | Result |
+| --- | --- | --- |
+| Attested agent buys TSLA inside the cap | [`0xe5052266...ddfa2`](https://explorer.testnet.chain.robinhood.com/tx/0xe50522661b55c797071b56e43aaf2bc91d37c9745a295ff6a5976883dd4ddfa2) | `TradeExecuted`, 1 testUSDG in, TSLA out, served model hash recorded; MCP `verify_receipt` returns `verified: true` |
+| Over-cap trade refused | [`0xb1adb723...2528c`](https://explorer.testnet.chain.robinhood.com/tx/0xb1adb7231fbd38b77489769d7db754b30f36fa9b1ba97bf14f51980f3b12528c) | reverted `ExceedsPerTradeCap(10000001, 10000000)`, balances unchanged |
+| Above the approval line: propose, then owner approves | [`0x4eb49253...95253`](https://explorer.testnet.chain.robinhood.com/tx/0x4eb4925389368436722b89721dd5db7e28b128923118dfa797e9a7cf42895253), [`0x7f2a63f4...d81ead`](https://explorer.testnet.chain.robinhood.com/tx/0x7f2a63f44c439d6099133bad32da8f346414f66f2f8541a3fedca496c4d81ead) | `TradeProposed`, then `TradeExecuted` with proposalId 1 |
+| Owner unapproves the agent's measurement | [`0x0b34701e...8382`](https://explorer.testnet.chain.robinhood.com/tx/0x0b34701eaee5f698b39988a13810e835abee437363093ebc8949ae89bc258382) | agent de-admitted in the same transaction |
+| The unapproved agent tries to trade | [`0xc0b2e5bc...1e08`](https://explorer.testnet.chain.robinhood.com/tx/0xc0b2e5bc95048ad424a246277a819dfad0238b394ba4bf08cf9dc0231c7e1e08) | reverted `NotAgent`; MCP `explain_refusal` decodes it from the explorer raw trace |
+
+These checks run as live tests in `mcp/test/rhc.test.ts`. Mainnet (4663) is not deployed: Chiron spends no mainnet funds before the owner signs off; `docs/` holds the mainnet runbook.
+
 ## Deployed on Robinhood Chain testnet (chain 46630)
 
 Deployed 2026-10-01 from `0x2aD12a72362704367e99a344cFf5affDDF7f5DEF`, which owns the account. Every contract below was read back after deployment; `contracts/deployments/46630.json` holds the full record with every transaction hash, and each transaction's `cast receipt` status is success.
@@ -91,7 +109,7 @@ Deployed 2026-10-01 from `0x2aD12a72362704367e99a344cFf5affDDF7f5DEF`, which own
 | Contract                   | Address                                                                                                                                         | What it is                                                                                                                                                                                                                             |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AgentAccount               | `[0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D)` | The first account, on the TestUSDG venue, where the live cycle and the mined refusals ran. Source verified on Blockscout.                                                                                                              |
-| AgentAccount (app default) | `[0xFaaAa4d1ee944d317b10233505D8c57425C53b55](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55)` | Paxos USDG account from factory `0x14103f19...ed03`, with the ERC-8056 corporate-action guard and the operator agent.                                                                                                                  |
+| AgentAccount (Paxos USDG)  | `[0xFaaAa4d1ee944d317b10233505D8c57425C53b55](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55)` | Paxos USDG account from factory `0x14103f19...ed03`, with the ERC-8056 corporate-action guard and the operator agent.                                                                                                                  |
 | AgentAccountFactory        | `[0xA5b57CA7961A96E75E3Ed1915F5677382d44F24e](https://explorer.testnet.chain.robinhood.com/address/0xA5b57CA7961A96E75E3Ed1915F5677382d44F24e)` | Creates one account per owner. Source verified on Blockscout.                                                                                                                                                                          |
 | Verifier                   | `[0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c](https://explorer.testnet.chain.robinhood.com/address/0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c)` | Stylus (Rust). Verifies an Intel TDX DCAP quote chain, returns the signer and the nine-field measurement.                                                                                                                              |
 | ReceiptVerifier            | `[0x9AF7D9C3B27c4A8a11Fb879041B931C38B712380](https://explorer.testnet.chain.robinhood.com/address/0x9AF7D9C3B27c4A8a11Fb879041B931C38B712380)` | Stylus (Rust). Verifies one Ed25519-signed Phala inference receipt.                                                                                                                                                                    |
