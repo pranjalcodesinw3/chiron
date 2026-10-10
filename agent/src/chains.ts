@@ -34,10 +34,12 @@ export const CHAINS: Record<ChainKey, ChainPreset> = {
     rpc: 'https://rpc.testnet.chain.robinhood.com',
     archiveRpc: 'https://rpc.testnet.chain.robinhood.com',
     explorer: 'https://explorer.testnet.chain.robinhood.com',
-    account: '0xFaaAa4d1ee944d317b10233505D8c57425C53b55',
+    // The account with the attested TSLA buys (testUSDG). The Paxos USDG accounts, e.g.
+    // 0xFaaAa4d1ee944d317b10233505D8c57425C53b55, run with ACCOUNT_ADDRESS and ASSAY_ADDRESS=0xcF4a98E21D4180b32B9726ef3d0A550A69973f9d.
+    account: '0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D',
     deployBlock: 127033401n,
-    assay: '0xcF4a98E21D4180b32B9726ef3d0A550A69973f9d',
-    usdg: '0x7E955252E15c84f5768B83c41a71F9eba181802F',
+    assay: '0x2176E7f20654C8747Fa37b3d96E1ACbf7Df55b5D',
+    usdg: '0x3500DaF0ADcE615A0bEF108FF0751ABb34b1FfCC',
     asset: { symbol: 'TSLA', address: '0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E' },
     v4Quoter: '0x8dc178efb8111bb0973dd9d722ebeff267c98f94',
   },

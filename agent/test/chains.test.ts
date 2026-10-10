@@ -19,3 +19,9 @@ test('presets match the deployment records', () => {
   const arb = readFileSync(new URL('../../contracts/deployments/421614-account.json', import.meta.url), 'utf8').toLowerCase();
   assert.ok(arb.includes(CHAINS['arbitrum-sepolia'].account.toLowerCase()));
 });
+
+test('Robinhood Chain preset is the 46630.json account, Assay and testUSDG', () => {
+  const rhc = JSON.parse(readFileSync(new URL('../../contracts/deployments/46630.json', import.meta.url), 'utf8'));
+  const p = CHAINS['robinhood-testnet'];
+  assert.deepEqual([p.account, p.assay, p.usdg].map((a) => a.toLowerCase()), [rhc.contracts.AgentAccount, rhc.contracts.Assay, rhc.contracts.TestUSDG].map((a: string) => a.toLowerCase()));
+});

@@ -10,7 +10,7 @@ services:
     environment:
       CHAIN: "robinhood-testnet"
       CHAIN_ID: "46630"
-      ACCOUNT_ADDRESS: "0xFaaAa4d1ee944d317b10233505D8c57425C53b55"
+      ACCOUNT_ADDRESS: "0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D"
       RPC_URL: "https://rpc.testnet.chain.robinhood.com"
       CONTROL_TOKEN: "${CONTROL_TOKEN}"
     volumes:
