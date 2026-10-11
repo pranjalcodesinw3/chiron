@@ -1,0 +1,42 @@
+/* CHIRON tokens. Source: DESIGN.md (linear.app system, adapted). Components use only these. */
+:root {
+  --canvas: #08090a;
+  --surface-1: #0f1011;
+  --surface-2: #141516;
+  --surface-3: #1b1c1e;
+  --hairline: #23252a;
+  --hairline-strong: #34343a;
+  --ink: #f7f8f8;
+  --ink-muted: #d0d6e0;
+  --ink-subtle: #8a8f98;
+  --accent: #5e6ad2;
+  --accent-hover: #737fe0;
+  --on-accent: #ffffff;
+  --ok: #3ec6a8;
+  --ok-wash: rgba(62, 198, 168, 0.12);
+  --warn: #e3b341;
+  --warn-wash: rgba(227, 179, 65, 0.12);
+  --bad: #f2555a;
+  --bad-wash: rgba(242, 85, 90, 0.12);
+  --rhc: #c3f53c;
+  --arb: #28a0f0;
+
+  --font-display: 'Archivo Variable', 'Archivo', sans-serif;
+  --font-body: 'Archivo Variable', 'Archivo', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --fs-12: 12px; --fs-14: 14px; --fs-16: 16px; --fs-20: 20px; --fs-28: 28px; --fs-44: 44px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* The accent is the selected network's own color: Robinhood Chain lime, Arbitrum blue. */
+:root[data-chain='robinhood-testnet'] { --accent: #c3f53c; --accent-hover: #d6ff6b; --on-accent: #0c1003; }
+:root[data-chain='arbitrum-sepolia'] { --accent: #28a0f0; --accent-hover: #53b6f5; --on-accent: #03131f; }

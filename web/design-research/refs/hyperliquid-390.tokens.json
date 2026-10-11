@@ -1,0 +1,67 @@
+{
+ "url": "https://app.hyperliquid.xyz/trade",
+ "status": 200,
+ "viewport": [
+  390,
+  844
+ ],
+ "lumaStd": 23.25,
+ "title": "86.459 | HYPE | Hyperliquid",
+ "h1": null,
+ "h2": null,
+ "h3": null,
+ "body": {
+  "text": "Trade\nPortfolio\nEarn\nVaults\nStaking\nReferrals\nLeaderboard\nTe",
+  "font": "OurFont, system-ui, \"Segoe UI\", Roboto, Ubuntu, \"Helvetica Neue\", sans-serif",
+  "size": "16px",
+  "weight": "400",
+  "tracking": "normal",
+  "leading": "normal",
+  "color": "rgb(255, 255, 255)",
+  "bg": "rgb(48, 48, 48)",
+  "radius": "0px",
+  "padding": "0px",
+  "border": "0px none rgb(255, 255, 255)",
+  "transform": "none",
+  "features": "normal"
+ },
+ "p": null,
+ "a": {
+  "text": "Trade",
+  "font": "OurFont, system-ui, \"Segoe UI\", Roboto, Ubuntu, \"Helvetica Neue\", sans-serif",
+  "size": "18px",
+  "weight": "400",
+  "tracking": "normal",
+  "leading": "21px",
+  "color": "rgb(246, 254, 253)",
+  "bg": "rgba(0, 0, 0, 0)",
+  "radius": "0px",
+  "padding": "0px",
+  "border": "0px none rgb(246, 254, 253)",
+  "transform": "none",
+  "features": "normal"
+ },
+ "button": {
+  "text": "Connect",
+  "font": "OurFont, system-ui, \"Segoe UI\", Roboto, Ubuntu, \"Helvetica Neue\", sans-serif",
+  "size": "12px",
+  "weight": "400",
+  "tracking": "normal",
+  "leading": "31px",
+  "color": "rgb(4, 6, 12)",
+  "bg": "rgb(80, 210, 193)",
+  "radius": "8px",
+  "padding": "0px 16px",
+  "border": "1px solid rgba(0, 0, 0, 0)",
+  "transform": "none",
+  "features": "normal"
+ },
+ "input": null,
+ "loadedFonts": [
+  "OurFont"
+ ],
+ "htmlBg": "rgb(15, 26, 30)",
+ "bodyText": "Trade\nPortfolio\nEarn\nVaults\nStaking\nReferrals\nLeaderboard\nTestnet\nExplorer\nSub-Accounts\nAPI\nBuilder Codes\nMulti-Sig\nPoints\nFunding Comparison\nAnnouncements\nStats\nDocs\nSupport\nAnnouncements\nNew order type: Trailing stop\nAvailable for perp markets only\nManual borrowing now available\nUse HYPE and BTC as collateral to borrow USDC and USDT\nNew listing: USELESS-USDC perps\nConnect\nHYPE-USDC\n10x\n86.459\n+1",
+ "textLen": 580,
+ "height": 844
+}
