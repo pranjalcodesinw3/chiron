@@ -81,6 +81,8 @@ const fromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.locat
 export const NET_KEY: ChainKey =
   parseChainKey(fromUrl?.get('chain') ?? fromUrl?.get('net')) ?? parseChainKey(import.meta.env.VITE_CHAIN as string | undefined) ?? 'arbitrum-sepolia';
 export const net = NETS[NET_KEY];
+// The page accent follows the selected network (tokens.css [data-chain]).
+if (typeof document !== 'undefined') document.documentElement.dataset.chain = NET_KEY;
 export const otherNet = NETS[NET_KEY === 'robinhood-testnet' ? 'arbitrum-sepolia' : 'robinhood-testnet'];
 
 export const ACCOUNT: Address = net.account;

@@ -79,12 +79,12 @@ function FundsStep({ snap, refetch }: Ctx) {
             onClick={() => tx.run(`Deposit ${t.symbol}`, () => writeContractAsync({ address: t.address, abi: erc20Abi, functionName: 'transfer', args: [snap.account, wei as bigint], chainId: appChain.id }))}>
             Deposit
           </button>
-          <button className="btn line" type="button" disabled={!canWithdraw || tx.busy}
+          <button className="btn btn-ghost" type="button" disabled={!canWithdraw || tx.busy}
             onClick={() => tx.run(`Withdraw ${t.symbol}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'withdraw', args: [t.address, to, wei as bigint], chainId: appChain.id }))}>
             Withdraw to owner
           </button>
           {/USDG/.test(t.symbol) && (
-            <a className="textbtn" href="https://faucet.paxos.com/" target="_blank" rel="noreferrer">
+            <a className="btn btn-ghost btn-sm" href="https://faucet.paxos.com/" target="_blank" rel="noreferrer">
               Paxos USDG faucet
             </a>
           )}
@@ -189,14 +189,14 @@ function MeasurementStep({ snap, refetch }: Ctx) {
             <input id="m-hash" className="hexin" value={m} onChange={(e) => setM(e.target.value)} placeholder="0x…" spellCheck={false} aria-invalid={m !== '' && !valid} />
             <span className="hint">
               {valid ? (listed ? 'Approved on this account now.' : 'Not approved on this account now.') : 'The 32-byte measurement from the agent\'s TDX quote.'}{' '}
-              <button type="button" className="textbtn" onClick={() => setM(GATEWAY_MEASUREMENT)}>Use Phala&apos;s gateway measurement</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setM(GATEWAY_MEASUREMENT)}>Use Phala&apos;s gateway measurement</button>
             </span>
           </div>
         </div>
         {ownerReason && <p className="note warn">{ownerReason}</p>}
         <div className="actions">
           <button className="btn" type="button" disabled={!!ownerReason || !valid || tx.busy} onClick={() => send(true)}>Approve</button>
-          <button className="btn line" type="button" disabled={!!ownerReason || !valid || tx.busy} onClick={() => send(false)}>Withdraw approval</button>
+          <button className="btn btn-ghost" type="button" disabled={!!ownerReason || !valid || tx.busy} onClick={() => send(false)}>Withdraw approval</button>
         </div>
       </div>
     </li>
@@ -239,7 +239,7 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
                         onClick={() => tx.run(`Approve proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'approveTrade', args: [p.id, p.trade], chainId: appChain.id }))}>
                         Approve
                       </button>
-                      <button className="btn line" type="button" disabled={!!ownerReason || tx.busy}
+                      <button className="btn btn-ghost" type="button" disabled={!!ownerReason || tx.busy}
                         onClick={() => tx.run(`Reject proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'rejectTrade', args: [p.id], chainId: appChain.id }))}>
                         Reject
                       </button>

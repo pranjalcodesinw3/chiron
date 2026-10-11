@@ -5,7 +5,7 @@ import { explorer } from '../chain';
 export function Stamp({ block, label = 'read at block', url = explorer.block }: { block: bigint; label?: string; url?: (n: bigint) => string }) {
   return (
     <span className="stamp">
-      {label}{' '}
+      <span className="stamp-l">{label}</span>{' '}
       <a href={url(block)} target="_blank" rel="noreferrer">
         {block.toLocaleString('en-US')}
       </a>
@@ -49,29 +49,6 @@ export function HexValue({ value, head = 4, tail = 4, href }: { value: string; h
 /** Code identifiers (function and error names), set in the mono face. */
 export function Code({ children }: { children: ReactNode }) {
   return <code className="code">{children}</code>;
-}
-
-/** The ruled strip of labelled cells a route opens with: small label over value, ruled cells. */
-export function TitleBlock({ cells }: { cells: { label: string; value: ReactNode; tone?: 'signal' | 'alarm'; lead?: boolean; mobileHide?: boolean }[] }) {
-  return (
-    <dl className="titleblock" style={{ ['--cells' as string]: cells.length }}>
-      {cells.map((c) => (
-        <div key={c.label} className={['tb-cell', c.tone, c.lead ? 'first' : '', c.mobileHide ? 'm-hide' : ''].filter(Boolean).join(' ')}>
-          <dt>{c.label}</dt>
-          <dd>{c.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** Circled number: a check or step in its true order. */
-export function Num({ n, mark = 'pass' }: { n: number; mark?: 'pass' | 'fail' | 'skip' | 'plain' }) {
-  return (
-    <span className={`n n-${mark}`} aria-hidden="true">
-      {n}
-    </span>
-  );
 }
 
 /** A specification line: subject, then hairline-separated facts. */

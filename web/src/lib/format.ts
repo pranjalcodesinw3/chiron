@@ -1,6 +1,10 @@
-import { formatUnits } from 'viem';
+import { formatUnits, getAddress } from 'viem';
 
-export const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** Middle-truncated; addresses go through their checksum first so one address has one spelling. */
+export const short = (a: string) => {
+  const v = /^0x[0-9a-fA-F]{40}$/.test(a) ? getAddress(a) : a;
+  return `${v.slice(0, 6)}…${v.slice(-4)}`;
+};
 
 /** "2026-09-26 13:50:11 UTC", or "never" for zero. */
 export function fmtStamp(sec: bigint | number): string {

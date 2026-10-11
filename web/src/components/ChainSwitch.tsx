@@ -18,13 +18,3 @@ export function ChainSwitch() {
     </nav>
   );
 }
-
-/** One-line badge naming the network a figure was read from. */
-export function ChainBadge() {
-  return (
-    <span className={`chainbadge ${net.key}`}>
-      <span className={`dot ${net.key}`} aria-hidden="true" />
-      {net.name} · {net.id}
-    </span>
-  );
-}

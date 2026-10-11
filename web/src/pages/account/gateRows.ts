@@ -77,7 +77,9 @@ export const REFUSAL_GLOSS: Record<string, string> = {
   AgentIsOwner: 'Agent key is the owner key',
 };
 
-const tokenOf = (tokens: TokenInfo[], a: string) => tokens.find((t) => t.address.toLowerCase() === a.toLowerCase());
+/** Quote tokens a trade can name besides the account's own (QUOTE_TOKEN): Paxos USDG on Robinhood Chain testnet. */
+const KNOWN: TokenInfo[] = [{ address: '0x7E955252E15c84f5768B83c41a71F9eba181802F', symbol: 'Paxos USDG', decimals: 6 }];
+const tokenOf = (tokens: TokenInfo[], a: string) => [...tokens, ...KNOWN].find((t) => t.address.toLowerCase() === a.toLowerCase());
 const amount = (tokens: TokenInfo[], a: string, v: bigint) => {
   const t = tokenOf(tokens, a);
   return t ? `${fmtToken(v, t.decimals)} ${t.symbol}` : `${v.toString()} of ${short(a)}`;
@@ -100,16 +102,37 @@ function tradeFromInput(input: Hex, tokens: TokenInfo[]): string | undefined {
   }
 }
 
+/** The token a refused trade would have spent, for formatting amount-like error arguments. */
+function spentToken(input: Hex, tokens: TokenInfo[]): TokenInfo | undefined {
+  try {
+    const d = decodeFunctionData({ abi: accountAbi, data: input });
+    if (d.functionName !== 'execute' && d.functionName !== 'propose' && d.functionName !== 'approveTrade') return undefined;
+    const t = (d.functionName === 'approveTrade' ? d.args[1] : d.args[0]) as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean };
+    return tokenOf(tokens, t.zeroForOne ? t.key.currency0 : t.key.currency1);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Error arguments in reader units: hashes truncated, amounts in the spent token's decimals. */
+function fmtArg(name: string, value: string, tok?: TokenInfo): string {
+  if (/^0x[0-9a-fA-F]{40,}$/.test(value)) return `${name} ${short(value)}`;
+  if (tok && /^\d+$/.test(value) && /amount|cap|spent|daily|limit|above/i.test(name)) return `${name} ${fmtToken(BigInt(value), tok.decimals)} ${tok.symbol}`;
+  return `${name} ${value}`;
+}
+
 export function refusalRow(r: Refusal, tokens: TokenInfo[]): GateRow {
   const err = r.selector ? decodeRevertSelector(r.selector) : undefined;
   const name = err?.name ?? 'reverted';
   const trade = tradeFromInput(r.input, tokens);
-  const args = r.errorArgs.map((a) => `${a.name} ${a.value}`).join(', ');
+  const tok = spentToken(r.input, tokens);
+  // The trade summary already states the amount; keep only arguments it does not.
+  const args = r.errorArgs.filter((a) => !(trade && a.name === 'amountIn')).map((a) => fmtArg(a.name, a.value, tok)).join(', ');
   return {
     key: `ref-${r.hash}`,
     tone: 'refuse',
     title: err ? (REFUSAL_GLOSS[name] ?? `${r.method}() refused`) : `${r.method}() reverted, no reason returned`,
-    sub: [`${r.method}() from ${short(r.from)}`, trade, args ? `${name}(${args})` : undefined].filter(Boolean).join(' · '),
+    sub: [`${r.method}() from ${short(r.from)}`, trade, args || undefined].filter(Boolean).join(' · '),
     tag: err ? `${name}()` : 'REVERTED',
     tx: r.hash,
     block: r.block,
@@ -133,7 +156,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
         rows.push({
           ...base,
           title: `${via ? `Proposal ${a.proposalId} approved: ` : ''}${amount(tokens, a.tokenIn, a.amountIn)} into ${amount(tokens, a.tokenOut, a.amountOut)}`,
-          sub: `Trade ${a.tradeId} · model ${modelLabel(a.servedModelHash)}`,
+          sub: `Trade ${a.tradeId} · served by ${modelLabel(a.servedModelHash)}, accepted under the pin`,
           tag: via ? 'APPROVED' : 'EXECUTED',
           receipt: {
             requestHash: a.requestHash,
@@ -147,7 +170,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
       case 'TradeProposed': {
         const t = a.trade as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean; amountIn: bigint };
         const from = t.zeroForOne ? t.key.currency0 : t.key.currency1;
-        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · model ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED' });
+        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · served by ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED' });
         break;
       }
       case 'TradeRejected':
@@ -163,7 +186,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
         rows.push({ ...base, title: `Agent ${short(a.agent)} revoked`, sub: 'Its key can no longer trade', tag: 'REVOKED' });
         break;
       case 'MeasurementSet':
-        rows.push({ ...base, title: `Owner ${a.approved ? 'approved' : 'withdrew'} code ${short(a.measurement)}`, sub: a.approved ? 'An agent running it can be admitted' : 'An agent running it is turned away', tag: a.approved ? 'APPROVED CODE' : 'WITHDRAWN' });
+        rows.push({ ...base, title: `Owner ${a.approved ? 'approved' : 'withdrew'} code ${short(a.measurement)}`, sub: a.approved ? 'Agents on this code can be admitted' : 'Agents on this code are refused', tag: a.approved ? 'APPROVED CODE' : 'WITHDRAWN' });
         break;
       case 'ModelSet':
         rows.push({ ...base, title: `Model pinned: ${modelName(a.requestedModelHash) ?? short(a.requestedModelHash)}`, sub: 'Every trade must carry a receipt from this model', tag: 'PINNED' });

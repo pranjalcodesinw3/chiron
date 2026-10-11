@@ -21,32 +21,21 @@ function Footer() {
   return (
     <footer className="foot">
       <span>
-        Chiron on {chain.name}, chain {chain.id}. Every figure is a chain read at the block shown beside it.{' '}
-        The same account contract is live on <a href={hrefFor(otherNet.key)}>{otherNet.name}</a>.
+        Chiron on {chain.name}, chain {chain.id}. Figures are live chain reads at the block shown under the headline.{' '}
+        The same account contract is live on <a className="link" href={hrefFor(otherNet.key)}>{otherNet.name}</a>.
       </span>
-      <a href={explorer.address(account)} target="_blank" rel="noreferrer">
+      <a className="link" href={explorer.address(account)} target="_blank" rel="noreferrer">
         The deployed account on {net.explorerName}
       </a>
     </footer>
   );
 }
 
-function Rail() {
-  const account = useAccountParam();
-  return (
-    <aside className="rail">
-      <NavLink to="/" className="mark" aria-label="Chiron, the account" />
-      <a className="rail-acct" href={explorer.address(account)} target="_blank" rel="noreferrer" title={account}>
-        Account {account.slice(0, 6)}...{account.slice(-4)}
-      </a>
-    </aside>
-  );
-}
-
 function Header() {
   return (
     <header className="top">
-      <NavLink to="/" className="wordmark">
+      <NavLink to="/" className="wordmark" aria-label="Chiron home">
+        <svg className="mark" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="3" height="14" rx="1" /><rect x="15" y="3" width="3" height="14" rx="1" /><rect x="5" y="8.5" width="10" height="3" rx="1" /></svg>
         CHIRON
       </NavLink>
       <ChainSwitch />
@@ -61,7 +50,6 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <div className="shell">
-            <Rail />
             <main className="main">
               <Header />
               <Routes>

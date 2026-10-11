@@ -66,7 +66,8 @@ describe('buildGateRows', () => {
     expect(na.tag).toBe('NotAgent()');
     const cap = rows.find((x) => x.block === 120n)!;
     expect(cap.tag).toBe('ExceedsPerTradeCap()');
-    expect(cap.sub).toContain('ExceedsPerTradeCap(amountIn 10000001, cap 10000000)');
+    expect(cap.sub).toContain('cap 10000000');
+    expect(cap.sub).not.toContain('ExceedsPerTradeCap(');
   });
   it('is not satisfied by an empty input', () => {
     expect(buildGateRows([], [], new Map(), tokens)).toEqual([]);
