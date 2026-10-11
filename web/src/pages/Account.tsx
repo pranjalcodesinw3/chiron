@@ -7,13 +7,14 @@ import { getAddress, isAddress, parseEventLogs, type Address } from 'viem';
 import { useConnection, useSwitchChain, useWriteContract } from 'wagmi';
 import { ACCOUNT, ASSET_SYMBOL, chain, explorer, FACTORY, modelName, net } from '../chain';
 import { Chip, type Tone } from '../components/Chip';
+import { CapRuler } from '../components/CapRuler';
 import { factoryAbi } from '../abi/AgentAccount.generated';
 import { GateLog } from '../components/GateLog';
 import { HexValue, Stamp } from '../components/Stamp';
 import { Wallet } from '../components/Wallet';
 import { useAtBlock } from '../hooks/useAtBlock';
 import { useTx } from '../hooks/useTx';
-import { fmtCountdown, fmtToken, short } from '../lib/format';
+import { fmtCountdown, fmtToken, fmtWhen, short } from '../lib/format';
 import { OwnerActions } from './account/OwnerActions';
 import { buildGateRows, useGateLog, type AccountLog, type GateRow } from './account/gateRows';
 import { latestPin, recheck } from './account/receiptCheck';
@@ -40,9 +41,12 @@ function CreateAccount() {
     <div className="create">
       <p className="small">Any wallet can deploy its own account from the factory. Only that wallet controls it.</p>
       {conn.isConnected ? (
+        <>
+        <p className="sign-summary"><b>What you sign:</b> a new account owned by your wallet on {chain.name}, with no funds, no agent and no caps until you set them.</p>
         <button className="btn" type="button" disabled={tx.busy} onClick={click}>
           {tx.state.phase === 'signing' ? 'Confirm in the wallet' : tx.state.phase === 'mining' ? 'Waiting for the receipt' : wrongChain ? `Switch to ${chain.name}` : 'Create my account'}
         </button>
+        </>
       ) : (
         <Wallet />
       )}
@@ -152,6 +156,10 @@ export function Account() {
     return [...new Set((pin?.accepted ?? []).map((h) => modelName(h) ?? short(h)))];
   }, [log.data]);
   const [checking, setChecking] = useState(false);
+  const admitted = activity?.find((r) => r.tag === 'ADMITTED');
+  const blockedRows = lead && refusedRows ? refusedRows.filter((r) => r.spend && r.spend.token.toLowerCase() === lead.address.toLowerCase()) : undefined;
+  const blocked = blockedRows ? blockedRows.reduce((a, r) => a + r.spend!.amount, 0n) : undefined;
+  const left = lead ? (lead.limits.daily > lead.used ? lead.limits.daily - lead.used : 0n) : undefined;
   const rc = useRecheckAll(account, tradeRows, log.data?.logs, checking);
   const nothing = !!activity && tradeRows.length === 0;
 
@@ -160,7 +168,24 @@ export function Account() {
       <section className="sheet" aria-labelledby="hero-h">
         <div className="hero">
           <div className="hero-copy">
-            <h1 id="hero-h" className="t-display">An AI agent trades this account only inside the owner&apos;s caps.</h1>
+            <div className="trust-row">
+              <span className={`netbadge ${net.key}`}><span className={`dot ${net.key}`} aria-hidden="true" />{net.name} · chain {net.id}</span>
+              {admitted && (
+                <a className="link trust-link" href={explorer.tx(admitted.tx)} target="_blank" rel="noreferrer">
+                  Agent TDX quote verified on chain{admitted.time !== undefined ? `, ${fmtWhen(admitted.time)}` : ''} ↗
+                </a>
+              )}
+            </div>
+            <div className="lead">
+              <span className="lead-value tnum">{snap ? snap.tradeCount.toString() : '…'}</span>
+              <span className="lead-label">trades the agent executed inside the owner&apos;s caps</span>
+            </div>
+            <p className="lead-sub">
+              {refusedRows && <Chip tone={refusedRows.length ? 'bad' : 'neutral'}>{refusedRows.length} {refusedRows.length === 1 ? 'call' : 'calls'} refused</Chip>}
+              {blocked !== undefined && lead && blocked > 0n && <span>{fmtToken(blocked, lead.decimals)} {lead.symbol} asked for across {blockedRows!.length} refused {blockedRows!.length === 1 ? 'call' : 'calls'}, none of it spent</span>}
+              {left !== undefined && lead && <span>{fmtToken(left, lead.decimals)} {lead.symbol} left in today&apos;s cap</span>}
+            </p>
+            <h1 id="hero-h" className="t-display">Each trade needs a verified agent, approved code, room under the cap and a model receipt.</h1>
             <p className="lede">
               Its key is admitted only after a contract verifies its Intel TDX quote against approved code, and every trade records the model that
               decided it. Here the agent buys {ASSET_SYMBOL} with {lead?.symbol ?? 'USDG'}.
@@ -168,7 +193,7 @@ export function Account() {
             <div className="hero-id">
               <span className="id-label">Account</span>
               <HexValue value={account} head={10} tail={8} href={explorer.address(account)} />
-              {snapQ.data && <Stamp block={snapQ.data.block} label={`${chain.name}, block`} />}
+              {snapQ.data && <span><span className="stamp-dot" aria-hidden="true" /><Stamp block={snapQ.data.block} label={`${chain.name}, block`} /></span>}
             </div>
           </div>
           <div className="hero-action">
@@ -214,8 +239,8 @@ export function Account() {
             <Gate
               n={3}
               label={lead ? `Inside the ${lead.symbol} caps` : 'Inside the caps'}
-              value={lead ? `${fmtToken(lead.used, lead.decimals)} / ${fmtToken(lead.limits.daily, lead.decimals)}` : '…'}
-              foot={lead ? <>spent in the last 24 h{lead.used > 0n && <span className="bar" style={{ ['--p' as string]: lead.limits.daily ? Math.min(1, Number(lead.used) / Number(lead.limits.daily)) : 0 }} />}</> : undefined}
+              value={lead ? <>{fmtToken(lead.used, lead.decimals)} / {fmtToken(lead.limits.daily, lead.decimals)}<span className="gate-unit">{lead.symbol}</span></> : '…'}
+              foot={lead && left !== undefined ? <>spent in 24 h, {fmtToken(left, lead.decimals)} left today{lead.used > 0n && <span className="bar" style={{ ['--p' as string]: lead.limits.daily ? Math.min(1, Number(lead.used) / Number(lead.limits.daily)) : 0 }} />}</> : undefined}
               refused={stepRefused?.[2]}
             />
             <Gate
@@ -233,6 +258,7 @@ export function Account() {
             </p>
           )}
         </div>
+        {lead && activity && <div className="ruler-wrap"><CapRuler token={lead} rows={activity} /></div>}
       </section>
 
       {snapQ.isError && (
@@ -256,6 +282,7 @@ export function Account() {
                 <dt>Pinned model</dt>
                 <dd>
                   <span className="kv-strong">{snap ? modelName(snap.requestedModelHash) ?? short(snap.requestedModelHash) : '…'}</span>
+                  
                   {snap && served.some((n) => n !== modelName(snap.requestedModelHash)) && <span className="hint served">served as {served.join(', ')}</span>}
                 </dd>
               </div>
@@ -265,7 +292,7 @@ export function Account() {
                 <dd>
                   {!snap ? '…' : snap.approved.length ? (
                     <details className="codes">
-                      <summary>{snap.approved.length} measurements</summary>
+                      <summary>{snap.approved.length} approved</summary>
                       {snap.approved.map((m) => <HexValue key={m} value={m} head={6} tail={4} />)}
                     </details>
                   ) : <span className="hint">none</span>}

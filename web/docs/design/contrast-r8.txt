@@ -1,0 +1,5 @@
+robinhood 1440: 212 text nodes, min ratio 4.75, min size 12px, AA failures 0
+robinhood 390: 209 text nodes, min ratio 4.75, min size 12px, AA failures 0
+arbitrum 1440: 152 text nodes, min ratio 4.75, min size 12px, AA failures 0
+arbitrum 390: 149 text nodes, min ratio 4.75, min size 12px, AA failures 0
+AA: pass (worst ratio 4.75)

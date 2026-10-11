@@ -1,0 +1,23 @@
+## Pass run (shipped tokens)
+robinhood 1440: 234 text nodes, min ratio 4.68, min size 12px, AA failures 0
+robinhood 390: 232 text nodes, min ratio 4.68, min size 12px, AA failures 0
+arbitrum 1440: 151 text nodes, min ratio 4.68, min size 12px, AA failures 0
+arbitrum 390: 149 text nodes, min ratio 4.68, min size 12px, AA failures 0
+non-text mint mark on executes zone: 7.40
+non-text amber line on approval zone: 7.99
+non-text red mark on approval zone: 4.61
+non-text red line on revert zone: 4.99
+non-text mint ring on approval zone: 7.29
+AA: pass (worst ratio 4.68)
+
+## Negative control: --ink-subtle forced to #4a4d52 (must fail)
+robinhood 1440: 234 text nodes, min ratio 1.86, min size 12px, AA failures 90
+robinhood 390: 232 text nodes, min ratio 2.15, min size 12px, AA failures 88
+arbitrum 1440: 151 text nodes, min ratio 1.86, min size 12px, AA failures 65
+arbitrum 390: 149 text nodes, min ratio 2.15, min size 12px, AA failures 63
+non-text mint mark on executes zone: 7.40
+non-text amber line on approval zone: 7.99
+non-text red mark on approval zone: 4.61
+non-text red line on revert zone: 4.99
+non-text mint ring on approval zone: 7.29
+AA: 306 failures

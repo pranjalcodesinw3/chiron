@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+/** Status system, semantic colors only: ok = done or verified, warn = waiting on the owner, bad = refused or failed, neutral = admin. */
 export type Tone = 'ok' | 'warn' | 'bad' | 'neutral';
 
 /** Status always carries its word; the color only reinforces it. */

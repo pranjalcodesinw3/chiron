@@ -74,6 +74,7 @@ function FundsStep({ snap, refetch }: Ctx) {
         </div>
         {anyReason && <p className="note warn">{anyReason}</p>}
         {!anyReason && ownerReason && <p className="note">Deposit is open to any wallet. Withdraw: {ownerReason}</p>}
+        <p className="sign-summary"><b>What you sign:</b> deposit moves {amount || 'the amount'} {t.symbol} from your wallet into the account. Withdraw moves it out to the owner wallet only. Gas on {appChain.name}; nothing else changes.</p>
         <div className="actions">
           <button className="btn" type="button" disabled={!canDeposit || tx.busy}
             onClick={() => tx.run(`Deposit ${t.symbol}`, () => writeContractAsync({ address: t.address, abi: erc20Abi, functionName: 'transfer', args: [snap.account, wei as bigint], chainId: appChain.id }))}>
@@ -137,6 +138,7 @@ function CapsForm({ snap, refetch, t }: Ctx & { t: TokenRow }) {
       </div>
       {ownerReason && <p className="note warn">{ownerReason}</p>}
       {!ownerReason && bad && <p className="note">{bad}</p>}
+      <p className="sign-summary"><b>What you sign:</b> {t.symbol} trading {allowed ? 'allowed' : 'off'}, at most {per || '0'} per trade and {daily || '0'} per 24 h, owner approval above {above || '0'}. The agent's next trade is checked against these numbers.</p>
       <div className="actions">
         <button className="btn" type="button" disabled={!!ownerReason || !!bad || tx.busy}
           onClick={() => tx.run(`Set ${t.symbol} caps`, () => writeContractAsync({
@@ -194,6 +196,7 @@ function MeasurementStep({ snap, refetch }: Ctx) {
           </div>
         </div>
         {ownerReason && <p className="note warn">{ownerReason}</p>}
+        <p className="sign-summary"><b>What you sign:</b> approve lets an agent whose TDX quote shows code {valid ? `${m.trim().slice(0, 10)}…` : 'this measurement'} be admitted. Withdraw refuses that code from the agent&apos;s next call. No funds move.</p>
         <div className="actions">
           <button className="btn" type="button" disabled={!!ownerReason || !valid || tx.busy} onClick={() => send(true)}>Approve</button>
           <button className="btn btn-ghost" type="button" disabled={!!ownerReason || !valid || tx.busy} onClick={() => send(false)}>Withdraw approval</button>
@@ -234,6 +237,8 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
                   key={p.id.toString()}
                   subject={<><span className="t-subject">Proposal {p.id.toString()}</span><span className="small">{fmtCountdown(left)}</span></>}
                   action={
+                    <>
+                    <span className="sign-summary"><b>What you sign:</b> approve executes proposal {p.id.toString()} now, still inside the caps; reject closes it with no trade.</span>
                     <span className="actions">
                       <button className="btn" type="button" disabled={!!ownerReason || left < 0 || tx.busy}
                         onClick={() => tx.run(`Approve proposal ${p.id}`, () => writeContractAsync({ address: snap.account, abi: accountAbi, functionName: 'approveTrade', args: [p.id, p.trade], chainId: appChain.id }))}>
@@ -244,6 +249,7 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
                         Reject
                       </button>
                     </span>
+                    </>
                   }
                 >
                   <Fact label="Sells">{inTok ? `${fmtToken(p.trade.amountIn, inTok.decimals)} ${inTok.symbol}` : p.trade.amountIn.toString()}</Fact>

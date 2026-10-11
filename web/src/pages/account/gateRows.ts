@@ -17,6 +17,8 @@ export type GateRow = {
   time?: bigint;
   /** What a trade row's receipt hash is recomputed from: the recorded hashes and the tx whose calldata carries the receipt. */
   receipt?: { requestHash: Hex; responseHash: Hex; served: Hex; carrierTx: Hex };
+  /** What the attempt would spend, for the caps chart. */
+  spend?: { token: Address; amount: bigint };
 };
 
 export type TokenInfo = { address: Address; symbol: string; decimals: number };
@@ -102,13 +104,23 @@ function tradeFromInput(input: Hex, tokens: TokenInfo[]): string | undefined {
   }
 }
 
-/** The token a refused trade would have spent, for formatting amount-like error arguments. */
-function spentToken(input: Hex, tokens: TokenInfo[]): TokenInfo | undefined {
+/** What a refused trade would have spent: token and raw amount from its calldata. */
+function spentBy(input: Hex): { token: Address; amount: bigint } | undefined {
   try {
     const d = decodeFunctionData({ abi: accountAbi, data: input });
     if (d.functionName !== 'execute' && d.functionName !== 'propose' && d.functionName !== 'approveTrade') return undefined;
-    const t = (d.functionName === 'approveTrade' ? d.args[1] : d.args[0]) as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean };
-    return tokenOf(tokens, t.zeroForOne ? t.key.currency0 : t.key.currency1);
+    const t = (d.functionName === 'approveTrade' ? d.args[1] : d.args[0]) as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean; amountIn: bigint };
+    return { token: t.zeroForOne ? t.key.currency0 : t.key.currency1, amount: t.amountIn };
+  } catch {
+    return undefined;
+  }
+}
+
+/** The token a refused trade would have spent, for formatting amount-like error arguments. */
+function spentToken(input: Hex, tokens: TokenInfo[]): TokenInfo | undefined {
+  try {
+    const s = spentBy(input);
+    return s ? tokenOf(tokens, s.token) : undefined;
   } catch {
     return undefined;
   }
@@ -134,6 +146,7 @@ export function refusalRow(r: Refusal, tokens: TokenInfo[]): GateRow {
     title: err ? (REFUSAL_GLOSS[name] ?? `${r.method}() refused`) : `${r.method}() reverted, no reason returned`,
     sub: [`${r.method}() from ${short(r.from)}`, trade, args || undefined].filter(Boolean).join(' · '),
     tag: err ? `${name}()` : 'REVERTED',
+    spend: spentBy(r.input),
     tx: r.hash,
     block: r.block,
     order: r.position,
@@ -158,6 +171,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
           title: `${via ? `Proposal ${a.proposalId} approved: ` : ''}${amount(tokens, a.tokenIn, a.amountIn)} into ${amount(tokens, a.tokenOut, a.amountOut)}`,
           sub: `Trade ${a.tradeId} · served by ${modelLabel(a.servedModelHash)}, accepted under the pin`,
           tag: via ? 'APPROVED' : 'EXECUTED',
+          spend: { token: a.tokenIn as Address, amount: a.amountIn as bigint },
           receipt: {
             requestHash: a.requestHash,
             responseHash: a.responseHash,
@@ -170,7 +184,7 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
       case 'TradeProposed': {
         const t = a.trade as { key: { currency0: Address; currency1: Address }; zeroForOne: boolean; amountIn: bigint };
         const from = t.zeroForOne ? t.key.currency0 : t.key.currency1;
-        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · served by ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED' });
+        rows.push({ ...base, title: `Proposal ${a.proposalId}: ${amount(tokens, from, t.amountIn)} above the approval line`, sub: `Waits for the owner · served by ${modelLabel(a.servedModelHash)}`, tag: 'PROPOSED', spend: { token: from, amount: t.amountIn } });
         break;
       }
       case 'TradeRejected':
