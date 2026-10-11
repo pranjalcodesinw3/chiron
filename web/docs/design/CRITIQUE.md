@@ -28,3 +28,8 @@ Refusals now counted under the check whose custom error raised them; accent foll
 Mobile strip fixed, neutral numerals, mint success token, caps one row per token on phones, chain words in Archivo. Remaining (logged, not fixed this round): first trade ~2,100px down on phones (Policy before Activity), red wash on refused rows, accent top rule on the sheet, small CSS duplicates.
 
 FINAL: 8.1 min=7.0 round=7 critic=design-review review=/Users/kamal/Desktop/solana/cwf/ethereum/projects/chiron/web/docs/design/review/design-audit-chiron-r7.md
+
+## r16 (critic) Design B, Slop B, avg 8.06 min 7.0 (r14 was avg 7.81 min 6.5). review=/Users/kamal/Desktop/solana/cwf/ethereum/projects/chiron/web/docs/design/review/design-audit-chiron-r16.md
+One approved round. Critic audited the r16 captures of the deployed r15 UI. Weakest axis Density (7.0): phone hero tightened (padding, row gap, text-wrap pretty on the lead clauses for the "spent." orphan) and the four-check strip spaced closer on phones. Phone page 4,967 to 4,915px (RHC), 3,185 to 3,139px (Arbitrum). r16-*.png reshot after the fix. Logged, not fixed: FINDING-001 three numbers on one feed row, FINDING-002 zone key words differ by width, FINDING-003 feed disc has no accessible name. No further rounds before the deadline.
+
+FINAL: 8.06 min=7.0 round=16 critic=design-review review=/Users/kamal/Desktop/solana/cwf/ethereum/projects/chiron/web/docs/design/review/design-audit-chiron-r16.md
