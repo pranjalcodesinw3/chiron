@@ -53,7 +53,7 @@ Chain 46630. Trades route through the canonical Uniswap v4 PoolManager `0x8366a3
 
 ## Development history
 
-Chiron's development started on 2026-09-27. Its first phase was built for the Arbitrum Open House Singapore (deadline 2026-10-01 15:59 UTC): the Assay contracts, the Stylus `Verifier` and `ReceiptVerifier`, `AgentAccount` and its factory, ChironGate, the agent CLI and CVM runtime, and a first web app. The Robinhood Chain testnet transactions for the attested trade, the over-cap refusal, the proposal and approval, the measurement revocation and the `NotAgent` refusal were mined in that phase, on 2026-10-01 between 14:32 and 15:11 UTC (the Paxos USDG trade `0x0023f359...3b03` is the last of them).
+Chiron's development started on 2026-09-27. The first phase shipped the Assay contracts, the Stylus `Verifier` and `ReceiptVerifier`, `AgentAccount` and its factory, ChironGate, the agent CLI and CVM runtime, and a first web app. The Robinhood Chain testnet transactions for the attested trade, the over-cap refusal, the proposal and approval, the measurement revocation and the `NotAgent` refusal were mined on 2026-10-01 between 14:32 and 15:11 UTC (the Paxos USDG trade `0x0023f359...3b03` is the last of them).
 
 Shipped from 2026-10-02, inside the Colosseum Crypto World's Fair contest period (which opened 2026-09-14):
 
@@ -290,7 +290,7 @@ The gate went through an internal review by a separate session from the one that
 
 ## Keeping keys fresh
 
-`attestationValidity` is immutable at 86400 seconds (24 hours), so a registered signer expires on a fixed clock. A `launchd` job (`com.chiron.keeper.register`, outside `~/Desktop` because launchd cannot read files under `~/Desktop`) re-runs `agent-cvm/register-keys.sh` every 20 hours, which registers the gateway signer and receipt key on all three Assays (Arbitrum Sepolia, and the testUSDG and Paxos USDG Assays on Robinhood Chain testnet), so a judge opening the app days after submission still sees unexpired keys on every chain. Kill it after judging with `launchctl unload ~/Library/LaunchAgents/com.chiron.keeper.register.plist`.
+`attestationValidity` is immutable at 86400 seconds (24 hours), so a registered signer expires on a fixed clock. A `launchd` job (`com.chiron.keeper.register`, outside `~/Desktop` because launchd cannot read files under `~/Desktop`) re-runs `agent-cvm/register-keys.sh` every 20 hours, which registers the gateway signer and receipt key on all three Assays (Arbitrum Sepolia, and the testUSDG and Paxos USDG Assays on Robinhood Chain testnet), so the keys stay unexpired on every chain. Stop it with `launchctl unload ~/Library/LaunchAgents/com.chiron.keeper.register.plist`.
 
 The account's agent runs on the same 24-hour clock (`ATTESTATION_VALIDITY`). `agent-cvm/keeper.sh` checks `agentExpiry()` every 30 minutes (`com.kamal.arbitrium.chiron-keeper`); inside three hours of expiry it asks the CVM for a fresh quote and submits `registerAgent`, then requires receipt status 1 and an `agentExpiry()` later than before. The agent panel on the hosted app turns amber when re-admission is due within two hours and red once the key has lapsed.
 

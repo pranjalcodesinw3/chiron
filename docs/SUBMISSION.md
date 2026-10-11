@@ -99,7 +99,7 @@ Chiron is dual-listed: the same `AgentAccount`, Stylus `Verifier` and receipt ch
 | Owner unapproves the agent's measurement | [`0x0b34701e...8382`](https://explorer.testnet.chain.robinhood.com/tx/0x0b34701eaee5f698b39988a13810e835abee437363093ebc8949ae89bc258382) | agent de-admitted in the same transaction |
 | The unapproved agent tries to trade | [`0xc0b2e5bc...1e08`](https://explorer.testnet.chain.robinhood.com/tx/0xc0b2e5bc95048ad424a246277a819dfad0238b394ba4bf08cf9dc0231c7e1e08) | reverted `NotAgent`; MCP `explain_refusal` decodes it from the explorer raw trace |
 
-These checks run as live tests in `mcp/test/rhc.test.ts`. Mainnet (4663) is not deployed: Chiron spends no mainnet funds before the owner signs off; `docs/` holds the mainnet runbook.
+These checks run as live tests in `mcp/test/rhc.test.ts`. A mainnet spend requires the owner's signature; `docs/` holds the mainnet runbook.
 
 ## Deployed on Robinhood Chain testnet (chain 46630)
 
