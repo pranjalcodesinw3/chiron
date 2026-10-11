@@ -87,7 +87,7 @@ The payer is the account owner: an agent operator running an attested agent for 
 
 Chiron is dual-listed: the same `AgentAccount`, Stylus `Verifier` and receipt check run on Robinhood Chain testnet (46630) and Arbitrum Sepolia (421614). On Robinhood Chain the agent buys Robinhood's official TSLA Stock Token through the canonical Uniswap v4 PoolManager, inside caps the owner sets, and only after the Stylus Verifier admits its Intel TDX quote.
 
-- App on Robinhood Chain: [chiron-receipts.vercel.app/?chain=robinhood](https://chiron-receipts.vercel.app/?chain=robinhood). The header switch flips between Robinhood Chain and Arbitrum; every figure is a live read from the selected chain, and each trade row rechecks its inference receipt in the browser.
+- App on Robinhood Chain: [chiron-999.pages.dev/?chain=robinhood](https://chiron-999.pages.dev/?chain=robinhood) (Arbitrum: [?chain=arbitrum](https://chiron-999.pages.dev/?chain=arbitrum)). The header switch flips between Robinhood Chain and Arbitrum; every figure is a live read from the selected chain, and each trade row rechecks its inference receipt in the browser. Legacy URL: chiron-receipts.vercel.app (older UI; still hosts the MCP endpoint).
 - One switch everywhere: `CHAIN=robinhood-testnet` (or `arbitrum-sepolia`, the default) selects RPC, account, Assay, USDG, the traded asset and the v4 quoter for the agent CLI, the keeper (`agent-cvm/keeper.sh`) and Assay key registration; `agent-cvm/docker-compose.robinhood.yml` measures the CVM for 46630; the MCP server takes `chain` on every tool (`verify_receipt`, `account_state`, `explain_refusal`).
 - Account: [`0x9c69...Aa6D`](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D) (3 trades executed).
 

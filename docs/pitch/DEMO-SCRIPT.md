@@ -2,7 +2,7 @@
 
 Length: 2:50. Screen recording at 1440 wide, voiceover as Kamal. Every link below is live; nothing is signed and no funds move during the demo.
 
-App: LIVE_URL/?chain=robinhood
+App: https://chiron-999.pages.dev/?chain=robinhood
 
 | Time | Shot (on screen) | Voiceover |
 |---|---|---|
@@ -19,7 +19,7 @@ App: LIVE_URL/?chain=robinhood
 
 ## Links used in the demo
 
-- App: LIVE_URL/?chain=robinhood (Arbitrum: LIVE_URL/?chain=arbitrum)
+- App: https://chiron-999.pages.dev/?chain=robinhood (Arbitrum: https://chiron-999.pages.dev/?chain=arbitrum)
 - Agent admitted, `registerAgent` success: https://explorer.testnet.chain.robinhood.com/tx/0x1f15df28041e7b8938ca6653eb5a75231f525568ab015644ec535796caa68134 (the app's trust link points at the latest admission of the current agent)
 - Trade executed inside the cap: https://explorer.testnet.chain.robinhood.com/tx/0xe50522661b55c797071b56e43aaf2bc91d37c9745a295ff6a5976883dd4ddfa2
 - Over-cap refusal: https://explorer.testnet.chain.robinhood.com/tx/0xb1adb7231fbd38b77489769d7db754b30f36fa9b1ba97bf14f51980f3b12528c
