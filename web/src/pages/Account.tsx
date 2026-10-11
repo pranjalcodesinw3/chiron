@@ -156,7 +156,12 @@ export function Account() {
     return [...new Set((pin?.accepted ?? []).map((h) => modelName(h) ?? short(h)))];
   }, [log.data]);
   const [checking, setChecking] = useState(false);
-  const admitted = activity?.find((r) => r.tag === 'ADMITTED');
+  // Trust link only for the agent that is admitted now: newest admission, not followed by a revoke, naming snap.agent.
+  const lastAdmit = activity?.find((r) => r.tag === 'ADMITTED');
+  const lastRevoke = activity?.find((r) => r.tag === 'REVOKED');
+  const admitIsCurrent = !!(activity && lastAdmit && snap && snap.agent !== ZERO_ADDR && lastAdmit.title.includes(short(snap.agent)) && (!lastRevoke || activity.indexOf(lastAdmit) < activity.indexOf(lastRevoke)));
+  const admitted = admitIsCurrent ? lastAdmit : undefined;
+  const revoked = !admitIsCurrent && snap && snap.agent === ZERO_ADDR ? lastRevoke : undefined;
   const blockedRows = lead && refusedRows ? refusedRows.filter((r) => r.spend && r.spend.token.toLowerCase() === lead.address.toLowerCase()) : undefined;
   const blocked = blockedRows ? blockedRows.reduce((a, r) => a + r.spend!.amount, 0n) : undefined;
   const left = lead ? (lead.limits.daily > lead.used ? lead.limits.daily - lead.used : 0n) : undefined;
@@ -175,6 +180,11 @@ export function Account() {
                   Agent TDX quote verified on chain{admitted.time !== undefined ? `, ${fmtWhen(admitted.time)}` : ''} ↗
                 </a>
               )}
+              {revoked && (
+                <a className="link trust-link trust-off" href={explorer.tx(revoked.tx)} target="_blank" rel="noreferrer">
+                  No agent admitted now; the last one was revoked{revoked.time !== undefined ? ` ${fmtWhen(revoked.time)}` : ''} ↗
+                </a>
+              )}
             </div>
             <div className="lead">
               <span className="lead-value tnum">{snap ? snap.tradeCount.toString() : '…'}</span>
@@ -182,8 +192,8 @@ export function Account() {
             </div>
             <p className="lead-sub">
               {refusedRows && <Chip tone={refusedRows.length ? 'bad' : 'neutral'}>{refusedRows.length} {refusedRows.length === 1 ? 'call' : 'calls'} refused</Chip>}
-              {blocked !== undefined && lead && blocked > 0n && <span>{fmtToken(blocked, lead.decimals)} {lead.symbol} asked for across {blockedRows!.length} refused {blockedRows!.length === 1 ? 'call' : 'calls'}, none of it spent</span>}
-              {left !== undefined && lead && <span>{fmtToken(left, lead.decimals)} {lead.symbol} left in today&apos;s cap</span>}
+              {blocked !== undefined && lead && blocked > 0n && <span>{blockedRows!.length} of them asked for {fmtToken(blocked, lead.decimals)} {lead.symbol}, none of it spent.</span>}
+              {left !== undefined && lead && <span>{fmtToken(left, lead.decimals)} {lead.symbol} left in today&apos;s cap.</span>}
             </p>
             <h1 id="hero-h" className="t-display">Each trade needs a verified agent, approved code, room under the cap and a model receipt.</h1>
             <p className="lede">

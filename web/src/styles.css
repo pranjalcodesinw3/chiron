@@ -193,6 +193,10 @@ button, input, select { font: inherit; color: inherit; }
 .attempts li > .an { grid-row: 1 / span 3; }
 .attempts li > :not(.an) { grid-column: 2; }
 .attempts .hint { padding-left: 0; }
+.attempts-compact li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-2); }
+.mk-more { fill: var(--ink-muted); font: 600 var(--fs-12) var(--font-mono); }
+.lead-sub > span + span::before { content: '·'; margin-right: var(--sp-2); color: var(--ink-subtle); }
+.trust-off { color: var(--ink-muted); }
 .an { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font: 600 12px/1 var(--font-mono); color: var(--canvas); }
 .an-executed { background: var(--ok); } .an-refused { background: var(--bad); }
 .an-approved { background: transparent; color: var(--ok); box-shadow: inset 0 0 0 2px var(--ok); }

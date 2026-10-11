@@ -43,11 +43,9 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
     x: sx(n(r.spend!.amount)),
     kind: r.tone === 'refuse' ? 'refused' : r.tag === 'APPROVED' ? 'approved' : 'executed',
   }));
-  // Pack marks that share an outcome lane so two calls at one amount never cover each other.
-  for (const key of Object.keys(LANE) as Kind[]) {
-    const inLane = marks.filter((m) => m.kind === key).sort((a, b) => a.x - b.x);
-    for (let i = 1; i < inLane.length; i++) if (inLane[i].x - inLane[i - 1].x < 18) inLane[i].x = inLane[i - 1].x + 18;
-  }
+  // Marks stay at their true amount. Calls in one lane closer than 18px share one drawn mark with a "+k" count;
+  // the numbered list below still gives every call its own line.
+  const drawn = groupMarks(marks);
   /** "just over the cap" when an amount sits within 0.1% above a line it crossed. */
   const edge = (v: bigint) => {
     const a = n(v);
@@ -69,7 +67,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
         <p className="hint">Each numbered mark is one call at the amount it tried to spend.</p>
       </figcaption>
       <div ref={box} className="ruler-box">
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${token.symbol}: owner approves above ${above}, per-trade cap ${cap}. ${marks.length} attempts, listed below the chart.`}>
+        <svg width={W} height={narrow ? H - 30 : H} viewBox={`0 0 ${W} ${narrow ? H - 30 : H}`} role="img" aria-label={`${token.symbol}: owner approves above ${above}, per-trade cap ${cap}. ${marks.length} attempts, listed below the chart.`}>
           <rect className="z-ok" x={zones[0].a} y={TRACK_Y} width={zones[0].b - zones[0].a} height={TRACK_H} rx="4" />
           <rect className="z-warn" x={zones[1].a} y={TRACK_Y} width={zones[1].b - zones[1].a} height={TRACK_H} />
           <rect className="z-bad" x={zones[2].a} y={TRACK_Y} width={zones[2].b - zones[2].a} height={TRACK_H} rx="4" />
@@ -77,10 +75,11 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
           <line className="l-bad" x1={sx(cap)} x2={sx(cap)} y1={TRACK_Y - 12} y2={TRACK_Y + TRACK_H} />
           <text className="l-text" x={sx(above)} y={TRACK_Y - 18} textAnchor="middle">{narrow ? '' : 'approve above '}{fmtToken(token.limits.approvalAbove, d)}</text>
           <text className="l-text l-text-bad" x={sx(cap)} y={TRACK_Y - 18} textAnchor="middle">cap {fmtToken(token.limits.perTrade, d)}</text>
-          {marks.map((m) => (
+          {drawn.map(({ m, extra }) => (
             <g key={m.row.key} className={`mk mk-${m.kind}`}>
               <circle cx={m.x} cy={TRACK_Y + LANE[m.kind]} r="9" />
               <text x={m.x} y={TRACK_Y + LANE[m.kind] + 4} textAnchor="middle">{m.n}</text>
+              {extra > 0 && <text className="mk-more" x={m.x + 12} y={TRACK_Y + LANE[m.kind] - 6}>+{extra}</text>}
             </g>
           ))}
           <line className="axis" x1={PAD} x2={W - PAD} y1={TRACK_Y + TRACK_H + 8} y2={TRACK_Y + TRACK_H + 8} />
@@ -98,13 +97,13 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
       </div>
       {narrow && <p className="zone-key"><span>executes up to {fmtToken(token.limits.approvalAbove, d)}</span><span>owner approves up to {fmtToken(token.limits.perTrade, d)}</span><span className="bad">reverts past the cap</span></p>}
       {marks.length ? (
-        <ol className="attempts">
+        <ol className={`attempts${narrow ? ' attempts-compact' : ''}`}>
           {marks.map((m) => (
             <li key={m.row.key}>
               <span className={`an an-${m.kind}`} aria-hidden="true">{m.n}</span>
               <span className="tnum attempt-amt">{fmtToken(m.amount, d)} {token.symbol}</span>
               <span className={`attempt-word w-${m.kind}`}>{WORD[m.kind]}{edge(m.amount)}</span>
-              {m.kind === 'refused' && <span className="hint">{m.row.title.toLowerCase()}</span>}
+              {m.kind === 'refused' && !narrow && <span className="hint">{m.row.title.toLowerCase()}</span>}
             </li>
           ))}
         </ol>
@@ -113,4 +112,18 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
       )}
     </figure>
   );
+}
+
+/** Group marks that share an outcome lane and sit within 18px, so none covers another; x is never moved. */
+export function groupMarks<M extends { x: number; kind: string }>(marks: M[]): { m: M; extra: number }[] {
+  const out: { m: M; extra: number }[] = [];
+  for (const kind of [...new Set(marks.map((m) => m.kind))]) {
+    const lane = marks.filter((m) => m.kind === kind).sort((a, b) => a.x - b.x);
+    for (const m of lane) {
+      const last = out.length && out[out.length - 1].m.kind === kind ? out[out.length - 1] : undefined;
+      if (last && m.x - last.m.x < 18) last.extra++;
+      else out.push({ m, extra: 0 });
+    }
+  }
+  return out;
 }
