@@ -15,6 +15,8 @@ export type GateRow = {
   block: bigint;
   order: number;
   time?: bigint;
+  /** The agent an ADMITTED or REVOKED row is about. */
+  agent?: Address;
   /** What a trade row's receipt hash is recomputed from: the recorded hashes and the tx whose calldata carries the receipt. */
   receipt?: { requestHash: Hex; responseHash: Hex; served: Hex; carrierTx: Hex };
   /** What the attempt would spend, for the caps chart. */
@@ -194,10 +196,10 @@ export function buildGateRows(logs: AccountLog[], refusals: Refusal[], times: Ma
         rows.push({ ...base, title: `Proposal ${a.proposalId} cancelled`, sub: 'Closed without a trade', tag: 'CANCELLED' });
         break;
       case 'AgentRegistered':
-        rows.push({ ...base, title: `Agent ${short(a.agent)} admitted: its Intel TDX quote verified on chain`, sub: `Code ${short(a.measurement)} · key expires ${fmtWhen(a.expiry)}`, tag: 'ADMITTED' });
+        rows.push({ ...base, title: `Agent ${short(a.agent)} admitted: its Intel TDX quote verified on chain`, sub: `Code ${short(a.measurement)} · key expires ${fmtWhen(a.expiry)}`, tag: 'ADMITTED', agent: a.agent as Address });
         break;
       case 'AgentRevoked':
-        rows.push({ ...base, title: `Agent ${short(a.agent)} revoked`, sub: 'Its key can no longer trade', tag: 'REVOKED' });
+        rows.push({ ...base, title: `Agent ${short(a.agent)} revoked`, sub: 'Its key can no longer trade', tag: 'REVOKED', agent: a.agent as Address });
         break;
       case 'MeasurementSet':
         rows.push({ ...base, title: `Owner ${a.approved ? 'approved' : 'withdrew'} code ${short(a.measurement)}`, sub: a.approved ? 'Agents on this code can be admitted' : 'Agents on this code are refused', tag: a.approved ? 'APPROVED CODE' : 'WITHDRAWN' });
@@ -309,4 +311,14 @@ export function useGateLog(account: Address) {
       return { head, logs, times, ...refusals };
     },
   });
+}
+
+/** The admission row behind the agent admitted now (rows newest first), or undefined if it was revoked or replaced. */
+export function currentAdmission(rows: GateRow[], agent: Address | undefined, zero: Address): GateRow | undefined {
+  if (!agent || agent.toLowerCase() === zero.toLowerCase()) return undefined;
+  for (const r of rows) {
+    if (r.tag === 'REVOKED' && r.agent?.toLowerCase() === agent.toLowerCase()) return undefined;
+    if (r.tag === 'ADMITTED') return r.agent?.toLowerCase() === agent.toLowerCase() ? r : undefined;
+  }
+  return undefined;
 }

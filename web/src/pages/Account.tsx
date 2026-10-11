@@ -16,7 +16,7 @@ import { useAtBlock } from '../hooks/useAtBlock';
 import { useTx } from '../hooks/useTx';
 import { fmtCountdown, fmtToken, fmtWhen, short } from '../lib/format';
 import { OwnerActions } from './account/OwnerActions';
-import { buildGateRows, useGateLog, type AccountLog, type GateRow } from './account/gateRows';
+import { buildGateRows, currentAdmission, useGateLog, type AccountLog, type GateRow } from './account/gateRows';
 import { latestPin, recheck } from './account/receiptCheck';
 import { readAccount, ZERO_ADDR, type Snapshot } from './account/read';
 
@@ -157,10 +157,9 @@ export function Account() {
   }, [log.data]);
   const [checking, setChecking] = useState(false);
   // Trust link only for the agent that is admitted now: newest admission, not followed by a revoke, naming snap.agent.
-  const lastAdmit = activity?.find((r) => r.tag === 'ADMITTED');
   const lastRevoke = activity?.find((r) => r.tag === 'REVOKED');
-  const admitIsCurrent = !!(activity && lastAdmit && snap && snap.agent !== ZERO_ADDR && lastAdmit.title.includes(short(snap.agent)) && (!lastRevoke || activity.indexOf(lastAdmit) < activity.indexOf(lastRevoke)));
-  const admitted = admitIsCurrent ? lastAdmit : undefined;
+  const admitIsCurrent = !!(activity && snap && currentAdmission(activity, snap.agent, ZERO_ADDR));
+  const admitted = admitIsCurrent && activity && snap ? currentAdmission(activity, snap.agent, ZERO_ADDR) : undefined;
   const revoked = !admitIsCurrent && snap && snap.agent === ZERO_ADDR ? lastRevoke : undefined;
   const blockedRows = lead && refusedRows ? refusedRows.filter((r) => r.spend && r.spend.token.toLowerCase() === lead.address.toLowerCase()) : undefined;
   const blocked = blockedRows ? blockedRows.reduce((a, r) => a + r.spend!.amount, 0n) : undefined;

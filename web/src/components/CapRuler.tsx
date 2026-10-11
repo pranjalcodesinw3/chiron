@@ -6,11 +6,11 @@ import { fmtToken } from '../lib/format';
 type Kind = 'executed' | 'approved' | 'refused';
 type Mark = { n: number; x: number; kind: Kind; row: GateRow; amount: bigint };
 
-const H = 150;
+const H = 162;
 const PAD = 24;
 const TRACK_Y = 40;
-const TRACK_H = 54;
-const LANE: Record<Kind, number> = { executed: 14, approved: 27, refused: 40 };
+const TRACK_H = 66;
+const LANE: Record<Kind, number> = { executed: 13, approved: 33, refused: 53 };
 const WORD: Record<Kind, string> = { executed: 'executed', approved: 'executed after owner approval', refused: 'refused' };
 
 /** Every trade attempt on the lead token, numbered, on one axis against the approval line and the per-trade cap. */
@@ -96,7 +96,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
         </svg>
       </div>
       {narrow && <p className="zone-key"><span>executes up to {fmtToken(token.limits.approvalAbove, d)}</span><span>owner approves up to {fmtToken(token.limits.perTrade, d)}</span><span className="bad">reverts past the cap</span></p>}
-      {marks.length ? (
+      {marks.length && !narrow ? (
         <ol className={`attempts${narrow ? ' attempts-compact' : ''}`}>
           {marks.map((m) => (
             <li key={m.row.key}>
@@ -107,6 +107,8 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
             </li>
           ))}
         </ol>
+      ) : marks.length ? (
+        <p className="hint">Each mark is numbered in time order; the Activity list below gives every call its amount and reason.</p>
       ) : (
         <p className="hint">No trade attempt on {token.symbol} yet; the zones show what the contract would do.</p>
       )}
