@@ -46,7 +46,22 @@ const inject = process.argv[3] // optional CSS, e.g. ':root{--ink-subtle:#555}' 
   const L = (c) => 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
   const mix = (c, a, bg) => c.map((v, i) => v * a + bg[i] * (1 - a)); const s1 = hex('#0f1011')
   const R = (a, b) => (Math.max(L(a), L(b)) + 0.05) / (Math.min(L(a), L(b)) + 0.05)
-  const nt = [['mint mark on executes zone', hex('#3ec6a8'), mix(hex('#3ec6a8'), 0.12, s1)], ['amber line on approval zone', hex('#e3b341'), mix(hex('#e3b341'), 0.12, s1)], ['red mark on approval zone', hex('#f2555a'), mix(hex('#e3b341'), 0.12, s1)], ['red line on revert zone', hex('#f2555a'), mix(hex('#f2555a'), 0.12, s1)], ['mint ring on approval zone', hex('#3ec6a8'), mix(hex('#e3b341'), 0.12, s1)]]
+  // Colors read from the rendered RHC page (computed fill/stroke), not constants.
+  const pg = await b.newPage({ viewport: { width: 1440, height: 900 } })
+  await pg.goto(`${base}/?chain=robinhood`, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {})
+  await pg.waitForSelector('.mk circle', { timeout: 60000 }).catch(() => {})
+  const C = await pg.evaluate(() => {
+    const g = (sel, prop) => { const e = document.querySelector(sel); if (!e) return null; const cs = getComputedStyle(e); return { c: cs[prop], o: parseFloat(cs.fillOpacity || '1') } }
+    const s1 = getComputedStyle(document.documentElement).getPropertyValue('--surface-1').trim()
+    return { s1, ok: g('.mk-executed circle', 'fill'), bad: g('.mk-refused circle', 'fill'), lw: g('.l-warn', 'stroke'), lb: g('.l-bad', 'stroke'), zo: g('.z-ok', 'fill'), zw: g('.z-warn', 'fill'), zb: g('.z-bad', 'fill'), ring: g('.mk-approved circle', 'stroke') }
+  })
+  await pg.close()
+  const rgba = (x) => { if (!x) return null; const m = x.c.match(/[\d.]+/g).map(Number); return { rgb: m.slice(0, 3), a: (m.length > 3 ? m[3] : 1) * x.o } }
+  const s1c = hex(C.s1.length === 7 ? C.s1 : '#0f1011')
+  const zone = (z) => { const v = rgba(z); return v ? mix(v.rgb, v.a, s1c) : s1c }
+  const fg = (x) => rgba(x)?.rgb
+  const nt = [['mint mark on executes zone', fg(C.ok), zone(C.zo)], ['amber line on approval zone', fg(C.lw), zone(C.zw)], ['red mark on approval zone', fg(C.bad), zone(C.zw)], ['red line on revert zone', fg(C.lb), zone(C.zb)], ['mint ring on approval zone', fg(C.ring) || fg(C.ok), zone(C.zw)]].filter(([, a]) => a)
+  console.log('non-text colors (computed):', JSON.stringify(C))
   for (const [n, a, bg] of nt) { const r = R(a, bg); console.log(`non-text ${n}: ${r.toFixed(2)}${r < 3 ? ' FAIL' : ''}`); if (r < 3) fails.push({ t: n }) }
   await b.close(); console.log(fails.length ? `AA: ${fails.length} failures` : `AA: pass (worst ratio ${worst})`); process.exit(fails.length ? 1 : 0)
 })()

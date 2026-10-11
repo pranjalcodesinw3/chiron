@@ -1,0 +1,11 @@
+robinhood 1440: 246 text nodes, min ratio 4.68, min size 12px, AA failures 0
+robinhood 390: 241 text nodes, min ratio 4.68, min size 12px, AA failures 0
+arbitrum 1440: 162 text nodes, min ratio 4.68, min size 12px, AA failures 0
+arbitrum 390: 160 text nodes, min ratio 4.68, min size 12px, AA failures 0
+non-text colors (computed): {"s1":"#0f1011","ok":{"c":"rgb(62, 198, 168)","o":1},"bad":{"c":"rgb(242, 85, 90)","o":1},"lw":{"c":"rgb(227, 179, 65)","o":1},"lb":{"c":"rgb(242, 85, 90)","o":1},"zo":{"c":"rgba(62, 198, 168, 0.12)","o":1},"zw":{"c":"rgba(227, 179, 65, 0.12)","o":1},"zb":{"c":"rgba(242, 85, 90, 0.12)","o":1},"ring":{"c":"rgb(62, 198, 168)","o":1}}
+non-text mint mark on executes zone: 7.40
+non-text amber line on approval zone: 7.99
+non-text red mark on approval zone: 4.61
+non-text red line on revert zone: 4.99
+non-text mint ring on approval zone: 7.29
+AA: pass (worst ratio 4.68)

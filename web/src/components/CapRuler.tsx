@@ -44,7 +44,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
     kind: r.tone === 'refuse' ? 'refused' : r.tag === 'APPROVED' ? 'approved' : 'executed',
   }));
   // Marks stay at their true amount. Calls in one lane closer than 18px share one drawn mark with a "+k" count;
-  // the numbered list below still gives every call its own line.
+  // the numbered list below still gives every call its own line (one line per call on phones).
   const drawn = groupMarks(marks);
   /** "just over the cap" when an amount sits within 0.1% above a line it crossed. */
   const edge = (v: bigint) => {
@@ -96,7 +96,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
         </svg>
       </div>
       {narrow && <p className="zone-key"><span>executes up to {fmtToken(token.limits.approvalAbove, d)}</span><span>owner approves up to {fmtToken(token.limits.perTrade, d)}</span><span className="bad">reverts past the cap</span></p>}
-      {marks.length && !narrow ? (
+      {marks.length ? (
         <ol className={`attempts${narrow ? ' attempts-compact' : ''}`}>
           {marks.map((m) => (
             <li key={m.row.key}>
@@ -107,8 +107,6 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
             </li>
           ))}
         </ol>
-      ) : marks.length ? (
-        <p className="hint">Each mark is numbered in time order; the Activity list below gives every call its amount and reason.</p>
       ) : (
         <p className="hint">No trade attempt on {token.symbol} yet; the zones show what the contract would do.</p>
       )}
