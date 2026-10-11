@@ -11,6 +11,7 @@ const PAD = 24;
 const TRACK_Y = 40;
 const TRACK_H = 66;
 const LANE: Record<Kind, number> = { executed: 13, approved: 33, refused: 53 };
+const SHORT: Record<Kind, string> = { executed: 'executed', approved: 'owner approved', refused: 'refused' };
 const WORD: Record<Kind, string> = { executed: 'executed', approved: 'executed after owner approval', refused: 'refused' };
 
 /** Every trade attempt on the lead token, numbered, on one axis against the approval line and the per-trade cap. */
@@ -30,10 +31,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
   const n = (v: bigint) => Number(v) / 10 ** d;
   const above = n(token.limits.approvalAbove);
   const cap = n(token.limits.perTrade);
-  const attempts = rows
-    .filter((r) => r.spend && r.spend.token.toLowerCase() === token.address.toLowerCase() && r.tag !== 'PROPOSED')
-    .slice()
-    .reverse(); // oldest first, so numbers follow time
+  const attempts = chartAttempts(token, rows);
   const max = Math.max(cap * 1.3, ...attempts.map((r) => n(r.spend!.amount) * 1.08), 1e-9);
   const sx = (v: number) => PAD + (Math.min(v, max) / max) * (W - 2 * PAD);
   const marks: Mark[] = attempts.map((r, i) => ({
@@ -44,7 +42,7 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
     kind: r.tone === 'refuse' ? 'refused' : r.tag === 'APPROVED' ? 'approved' : 'executed',
   }));
   // Marks stay at their true amount. Calls in one lane closer than 18px share one drawn mark with a "+k" count;
-  // the numbered list below still gives every call its own line (one line per call on phones).
+  // the numbered list below still gives every call its own line (one line per call on phones: number, amount, outcome).
   const drawn = groupMarks(marks);
   /** "just over the cap" when an amount sits within 0.1% above a line it crossed. */
   const edge = (v: bigint) => {
@@ -95,14 +93,14 @@ export function CapRuler({ token, rows }: { token: TokenRow; rows: GateRow[] }) 
             ))}
         </svg>
       </div>
-      {narrow && <p className="zone-key"><span>executes up to {fmtToken(token.limits.approvalAbove, d)}</span><span>owner approves up to {fmtToken(token.limits.perTrade, d)}</span><span className="bad">reverts past the cap</span></p>}
+      {narrow && <p className="zone-key"><span>runs ≤ {fmtToken(token.limits.approvalAbove, d)}</span><span>owner ≤ {fmtToken(token.limits.perTrade, d)}</span><span className="bad">reverts above</span></p>}
       {marks.length ? (
         <ol className={`attempts${narrow ? ' attempts-compact' : ''}`}>
           {marks.map((m) => (
             <li key={m.row.key}>
               <span className={`an an-${m.kind}`} aria-hidden="true">{m.n}</span>
               <span className="tnum attempt-amt">{fmtToken(m.amount, d)} {token.symbol}</span>
-              <span className={`attempt-word w-${m.kind}`}>{WORD[m.kind]}{edge(m.amount)}</span>
+              <span className={`attempt-word w-${m.kind}`}>{narrow ? SHORT[m.kind] : `${WORD[m.kind]}${edge(m.amount)}`}</span>
               {m.kind === 'refused' && !narrow && <span className="hint">{m.row.title.toLowerCase()}</span>}
             </li>
           ))}
@@ -126,4 +124,16 @@ export function groupMarks<M extends { x: number; kind: string }>(marks: M[]): {
     }
   }
   return out;
+}
+
+/** The calls the caps chart draws, oldest first so mark numbers follow time. */
+export function chartAttempts(token: { address: string }, rows: GateRow[]): GateRow[] {
+  return rows.filter((r) => r.spend && r.spend.token.toLowerCase() === token.address.toLowerCase() && r.tag !== 'PROPOSED').slice().reverse();
+}
+
+/** Row key -> chart mark number and outcome, so Activity rows can carry the same number as the chart. */
+export function markNumbers(token: { address: string }, rows: GateRow[]): Map<string, { n: number; kind: Kind }> {
+  const m = new Map<string, { n: number; kind: Kind }>();
+  chartAttempts(token, rows).forEach((r, i) => m.set(r.key, { n: i + 1, kind: r.tone === 'refuse' ? 'refused' : r.tag === 'APPROVED' ? 'approved' : 'executed' }));
+  return m;
 }

@@ -7,7 +7,7 @@ import { getAddress, isAddress, parseEventLogs, type Address } from 'viem';
 import { useConnection, useSwitchChain, useWriteContract } from 'wagmi';
 import { ACCOUNT, ASSET_SYMBOL, chain, explorer, FACTORY, modelName, net } from '../chain';
 import { Chip, type Tone } from '../components/Chip';
-import { CapRuler } from '../components/CapRuler';
+import { CapRuler, markNumbers } from '../components/CapRuler';
 import { factoryAbi } from '../abi/AgentAccount.generated';
 import { GateLog } from '../components/GateLog';
 import { HexValue, Stamp } from '../components/Stamp';
@@ -344,7 +344,7 @@ export function Account() {
           {!shown || !log.data ? (
             <p className="empty">Reading the account&apos;s trades.</p>
           ) : shown.length ? (
-            <GateLog rows={shown} recheck={checking ? { account, logs: log.data.logs } : undefined} />
+            <GateLog rows={shown} marks={lead && activity ? markNumbers(lead, activity) : undefined} recheck={checking ? { account, logs: log.data.logs } : undefined} />
           ) : (
             <NoTrades logs={log.data.logs} />
           )}

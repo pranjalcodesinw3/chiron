@@ -14,7 +14,7 @@ function ReceiptChip({ account, row, logs }: { account: Address; row: GateRow; l
 }
 
 /** The account's own record, newest first: what the gate let through and what it turned away. */
-export function GateLog({ rows, recheck }: { rows: GateRow[]; recheck?: { account: Address; logs: AccountLog[] } }) {
+export function GateLog({ rows, recheck, marks }: { rows: GateRow[]; recheck?: { account: Address; logs: AccountLog[] }; marks?: Map<string, { n: number; kind: string }> }) {
   return (
     <ul className="feed">
       {rows.map((r) => {
@@ -25,7 +25,10 @@ export function GateLog({ rows, recheck }: { rows: GateRow[]; recheck?: { accoun
               <Chip tone={toneForTag(r.tag, refused)}>{chipLabel(r.tag, refused)}</Chip>
             </div>
             <div className="feed-main">
-              <p className="feed-title">{r.title}</p>
+              <p className="feed-title">
+                {marks?.get(r.key) && <span className={`an an-${marks.get(r.key)!.kind} feed-mark`} title={`Mark ${marks.get(r.key)!.n} on the caps chart`}>{marks.get(r.key)!.n}</span>}
+                {r.title}
+              </p>
               <p className="feed-sub">
                 {r.sub}
               </p>

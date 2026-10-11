@@ -281,7 +281,7 @@ button, input, select { font: inherit; color: inherit; }
   .t-display { font-size: var(--fs-20); line-height: 1.2; }
   .lead-value { font-size: var(--fs-48); }
   .lead-sub > span + span::before { content: none; }
-  .lead-sub > span { flex-basis: 100%; }
+  .lead-sub > span:not(.chip) { flex-basis: 100%; }
   .lead-label { font-size: var(--fs-16); }
   .hero { padding: var(--sp-5) var(--sp-4); }
   .gates-wrap { padding: var(--sp-4); }
@@ -305,3 +305,5 @@ button, input, select { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 .stamp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; }
+
+.feed-mark { margin-right: var(--sp-2); vertical-align: 2px; }

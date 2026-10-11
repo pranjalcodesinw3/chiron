@@ -49,6 +49,7 @@ const inject = process.argv[3] // optional CSS, e.g. ':root{--ink-subtle:#555}' 
   // Colors read from the rendered RHC page (computed fill/stroke), not constants.
   const pg = await b.newPage({ viewport: { width: 1440, height: 900 } })
   await pg.goto(`${base}/?chain=robinhood`, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {})
+  if (inject) await pg.addStyleTag({ content: inject })
   await pg.waitForSelector('.mk circle', { timeout: 60000 }).catch(() => {})
   const C = await pg.evaluate(() => {
     const g = (sel, prop) => { const e = document.querySelector(sel); if (!e) return null; const cs = getComputedStyle(e); return { c: cs[prop], o: parseFloat(cs.fillOpacity || '1') } }
@@ -60,7 +61,9 @@ const inject = process.argv[3] // optional CSS, e.g. ':root{--ink-subtle:#555}' 
   const s1c = hex(C.s1.length === 7 ? C.s1 : '#0f1011')
   const zone = (z) => { const v = rgba(z); return v ? mix(v.rgb, v.a, s1c) : s1c }
   const fg = (x) => rgba(x)?.rgb
-  const nt = [['mint mark on executes zone', fg(C.ok), zone(C.zo)], ['amber line on approval zone', fg(C.lw), zone(C.zw)], ['red mark on approval zone', fg(C.bad), zone(C.zw)], ['red line on revert zone', fg(C.lb), zone(C.zb)], ['mint ring on approval zone', fg(C.ring) || fg(C.ok), zone(C.zw)]].filter(([, a]) => a)
+  const nt = [['mint mark on executes zone', fg(C.ok), zone(C.zo)], ['amber line on approval zone', fg(C.lw), zone(C.zw)], ['red mark on approval zone', fg(C.bad), zone(C.zw)], ['red line on revert zone', fg(C.lb), zone(C.zb)], ['mint ring on approval zone', fg(C.ring) || fg(C.ok), zone(C.zw)]]
+  for (const [n, a] of nt) if (!a) { console.log(`non-text ${n}: element missing FAIL`); fails.push({ t: n }) }
+  nt.splice(0, nt.length, ...nt.filter(([, a]) => a))
   console.log('non-text colors (computed):', JSON.stringify(C))
   for (const [n, a, bg] of nt) { const r = R(a, bg); console.log(`non-text ${n}: ${r.toFixed(2)}${r < 3 ? ' FAIL' : ''}`); if (r < 3) fails.push({ t: n }) }
   await b.close(); console.log(fails.length ? `AA: ${fails.length} failures` : `AA: pass (worst ratio ${worst})`); process.exit(fails.length ? 1 : 0)
