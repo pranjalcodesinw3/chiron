@@ -10,7 +10,7 @@ function ReceiptChip({ account, row, logs }: { account: Address; row: GateRow; l
   if (!s) return null;
   if (s.state === 'checking') return <Chip tone="neutral">Checking receipt</Chip>;
   if (s.state === 'verified') return <Chip tone="ok" title={s.checks.map((c) => c.name).join(', ')}>Receipt verified</Chip>;
-  return <Chip tone="bad" title={s.reason ?? s.checks.filter((c) => !c.ok).map((c) => c.name).join(', ')}>Receipt not verified</Chip>;
+  return <Chip tone="bad" title={s.reason ?? s.checks.filter((c) => !c.ok).map((c) => c.name).join(', ')}>Receipt check failed</Chip>;
 }
 
 /** The account's own record, newest first: what the gate let through and what it turned away. */

@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Network | Robinhood Chain testnet (46630); Assay billing also on Arbitrum Sepolia (421614) |
-| App | [chiron-receipts.vercel.app](https://chiron-receipts.vercel.app): the first screen reads one admission and one refusal from the chain, then an eight-step lifecycle where each row resolves only when its receipt matches; no wallet needed |
-| Account the app opens on | [`0xFaaAa4d1ee944d317b10233505D8c57425C53b55`](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55): Paxos USDG, ERC-8056 corporate-action guard, operator agent admitted |
+| App | [chiron-999.pages.dev](https://chiron-999.pages.dev/?chain=robinhood): the first screen reads one admission and one refusal from the chain, then an eight-step lifecycle where each row resolves only when its receipt matches; no wallet needed |
+| Account the app opens on | [`0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D`](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D): the attested TSLA buys and mined refusals, 3 trades executed (`tradeCount()` read on chain 46630) |
 | Attested trade | [`0x0023f359...3b03`](https://explorer.testnet.chain.robinhood.com/tx/0x0023f35941a1490017d220c94b41124f53b044b7416f59ea278208ee500e3b03): the TDX-attested agent buys TSLA with 1 Paxos USDG, receipt-checked model hash in `TradeExecuted` |
 | Refusal | [`0xf98156ad...fcc8`](https://explorer.testnet.chain.robinhood.com/tx/0xf98156ad950c82abe4ce3ab0eac3da0ae860d1abd91fdb9eb545aa87e7e2fcc8): a real TDX quote from a different workload, `registerAgent` reverts `MeasurementNotApproved` |
 | Agents | `claude mcp add --transport http chiron https://chiron-receipts.vercel.app/mcp` |
@@ -51,6 +51,31 @@ report_data = agent address (20 bytes) || 12 zero bytes || nonce
 
 Chain 46630. Trades route through the canonical Uniswap v4 PoolManager `0x8366a39CC670B4001A1121B8F6A443A643e40951`, whose runtime code hash is the same on testnet and mainnet (`0xbd38...5626`); the deploy script refuses to run if it differs. The stock side is Robinhood's official TSLA Stock Token `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E`, funded from the official faucet. The quote side is two assets. `TestUSDG`, a 6-decimal fixture the deploy script deploys with open minting, quotes the first pool. Paxos's testnet USDG `0x7E955252E15c84f5768B83c41a71F9eba181802F` (6 decimals) quotes a second hookless 0.3% TSLA/USDG pool the same account is allowed to trade: the account takes any token the owner gives limits and any pool the owner allows, and `contracts/script/rhc/AddUSDGVenue.s.sol` creates the pool and configures the account. `RHCVenue` creates the hookless 0.3% TSLA/testUSDG pool on the PoolManager and funds a full-range position through the PositionManager and Permit2 at a price the script sets (250 testUSDG per TSLA by default).
 
+## Development history
+
+Chiron's development started on 2026-09-27. Its first phase was built for the Arbitrum Open House Singapore (deadline 2026-10-01 15:59 UTC): the Assay contracts, the Stylus `Verifier` and `ReceiptVerifier`, `AgentAccount` and its factory, ChironGate, the agent CLI and CVM runtime, and a first web app. The Robinhood Chain testnet transactions for the attested trade, the over-cap refusal, the proposal and approval, the measurement revocation and the `NotAgent` refusal were mined in that phase, on 2026-10-01 between 14:32 and 15:11 UTC (the Paxos USDG trade `0x0023f359...3b03` is the last of them).
+
+Shipped from 2026-10-02, inside the Colosseum Crypto World's Fair contest period (which opened 2026-09-14):
+
+| Work | Commit | Date |
+| --- | --- | --- |
+| ERC-8056 corporate-action guard on agent trades | `1709571` | 2026-10-02 |
+| Stock Token eligibility gate on account actions | `4b41ff5` | 2026-10-02 |
+| Factory v2: client accounts on Paxos USDG | `4276fb2` | 2026-10-02 |
+| One attested operator agent serving many client accounts | `0f985aa` | 2026-10-02 |
+| Assay on Paxos USDG, opened with an EIP-2612 permit | `6861d43` | 2026-10-02 |
+| Replayable refusals, including the wrong-model receipt refusal `0xf98156ad...fcc8` | `7c4773c` | 2026-10-02 |
+| MCP server: `verify_receipt`, `account_state`, `explain_refusal` | `f51afa7` | 2026-10-02 |
+| Hosted MCP endpoint over Streamable HTTP | `2094b7c` | 2026-10-02 |
+| Attestation keeper and agent panel near-expiry state | `42d7bc2` | 2026-10-02 |
+| Arbitrum Sepolia deployment of Assay, factory, account and pool | `fa8896f` | 2026-10-05 |
+| Chain switch: `CHAIN=` for the agent, keeper and CVM | `7acd1c2`, `71841ed` | 2026-10-10 |
+| Chain switch: `chain` argument on every MCP tool | `662ffe8` | 2026-10-10 |
+| Chain switch: Robinhood Chain testnet or Arbitrum Sepolia in the web app | `b518ed9` | 2026-10-10 |
+| Web UI rebuild: one sheet, recheck-every-receipt action, four-check strip | `3f60486` | 2026-10-11 |
+| Web design contract and per-network accent | `72dbb21` | 2026-10-11 |
+| Web rounds r10 to r16, deployed on Cloudflare Pages | `7c811b3` | 2026-10-12 |
+
 ## Business model
 
 The buyer is a team that runs trading agents with other people's money: a hosted-agent operator (39 agents hosted by Agents Hood on Robinhood Chain, Bankr routing $178.66M of Robinhood Chain volume in 30 days, both in `docs/research/chiron-pivot-verdict.md`). Today their clients hand a key to the operator's backend. With Chiron the operator runs one attested CVM, each client owns an account and sets its own caps, and the operator proves to every client which code holds the key and which model made each trade. The client pays the operator for the agent; the operator pays for one CVM and for keeping each client's admission fresh, which on Robinhood Chain testnet measured 2,429,944 and 2,444,609 gas per `registerAgent` (`0x8737f5cb`, `0xd345d42f`), about 0.0000244 ETH each at the testnet's 0.01 gwei.
@@ -82,8 +107,8 @@ Deployed 2026-10-01 from `0x2aD12a72362704367e99a344cFf5affDDF7f5DEF`, which own
 
 | Contract | Address | What it is |
 |---|---|---|
-| AgentAccount | [`0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D`](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D) | The first account, on the TestUSDG venue, where the live cycle and the mined refusals ran. Source verified on Blockscout. |
-| AgentAccount (app default) | [`0xFaaAa4d1ee944d317b10233505D8c57425C53b55`](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55) | Paxos USDG account from factory `0x14103f19...ed03`, with the ERC-8056 corporate-action guard and the operator agent. |
+| AgentAccount (app default) | [`0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D`](https://explorer.testnet.chain.robinhood.com/address/0x9c69A43F16E994Ce45e9EE896E2D01369b0Aaa6D) | The first account, on the TestUSDG venue, where the live cycle and the mined refusals ran. Source verified on Blockscout. |
+| AgentAccount (Paxos USDG) | [`0xFaaAa4d1ee944d317b10233505D8c57425C53b55`](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55) | Paxos USDG account from factory `0x14103f19...ed03`, with the ERC-8056 corporate-action guard and the operator agent. |
 | AgentAccountFactory | [`0xA5b57CA7961A96E75E3Ed1915F5677382d44F24e`](https://explorer.testnet.chain.robinhood.com/address/0xA5b57CA7961A96E75E3Ed1915F5677382d44F24e) | Creates one account per owner. Source verified on Blockscout. |
 | Verifier | [`0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c`](https://explorer.testnet.chain.robinhood.com/address/0x3c19C10E5C9a82D01ED79E5c6026D73B9b2CAF8c) | Stylus (Rust). Verifies an Intel TDX DCAP quote chain, returns the signer and the nine-field measurement. |
 | ReceiptVerifier | [`0x9AF7D9C3B27c4A8a11Fb879041B931C38B712380`](https://explorer.testnet.chain.robinhood.com/address/0x9AF7D9C3B27c4A8a11Fb879041B931C38B712380) | Stylus (Rust). Verifies one Ed25519-signed Phala inference receipt. |
@@ -170,7 +195,7 @@ The agent runs inside a Phala Cloud dstack CVM (`agent/src/cvm.ts`, packaged by 
 
 **Real USDG on both legs.** A second factory, [`0xB9F7eB23...73c3`](https://explorer.testnet.chain.robinhood.com/address/0xB9F7eB234C2F562475668c1Dc9b6850f235373c3), builds accounts bound to Paxos USDG and to the Paxos USDG Assay, and the hosted app's "Create an account" uses it. Account [`0x06AAadCc...2506`](https://explorer.testnet.chain.robinhood.com/address/0x06AAadCc83873775D8A72F42B912f57ab3dc2506) from it trades the TSLA/USDG pool under USDG and TSLA caps, pins `phala/qwen3.8-27b-uncensored` (the model whose receipt label equals its request, so Assay can pay it), admits the same operator agent ([`0xd345d42f...c53d`](https://explorer.testnet.chain.robinhood.com/tx/0xd345d42f33bd3b01319d8b89851c3822fb3ea730482dcd7f0090419d9b16c53d)), and funds its own inference channel in Paxos USDG: [`openInferenceChannel`](https://explorer.testnet.chain.robinhood.com/tx/0xed6e42b7840a47e76e548980b8e62026b3e75c6622443069bdf055a3829a1d32), channel 1 on Assay `0xcF4a...3f9d`, 1 USDG, agent = the account.
 
-**Stock Token corporate actions.** Robinhood Stock Tokens announce splits and other corporate actions through ERC-8056 (`uiMultiplier`, `newUIMultiplier`, `effectiveAt`), and an AMM pool's price does not move with the multiplier. Accounts from factory [`0x14103f19...ed03`](https://explorer.testnet.chain.robinhood.com/address/0x14103f1928AB34b45Cc376fF56fb59d798Deed03), which the hosted app now uses, refuse the agent's `execute` and `propose` in a Stock Token while a multiplier change is pending or for `CORPORATE_ACTION_COOLDOWN` (one day) after it takes effect, with `CorporateActionPending(token, uiMultiplier, newUIMultiplier, effectiveAt)`; the owner can still approve a proposal, and USDG, which has no multiplier, passes. `contracts/test/AgentAccountCorporateAction.t.sol` covers a pending split on both trade directions, the cooldown edge, `propose`, and the owner override; `AgentAccountRHCFork.t.sol` swaps the live testnet TSLA through the guard. The account card reads each token's ERC-8056 state at the same block as the rest of the mandate. Account [`0xFaaAa4d1...3b55`](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55) from this factory holds 4 USDG and the same operator agent ([`0xec2e5aba...0d3a`](https://explorer.testnet.chain.robinhood.com/tx/0xec2e5abacab4f45a15176bed75480c6fae0e0b5c94858501f58714729b5f0d3a)).
+**Stock Token corporate actions.** Robinhood Stock Tokens announce splits and other corporate actions through ERC-8056 (`uiMultiplier`, `newUIMultiplier`, `effectiveAt`), and an AMM pool's price does not move with the multiplier. Accounts from factory [`0x14103f19...ed03`](https://explorer.testnet.chain.robinhood.com/address/0x14103f1928AB34b45Cc376fF56fb59d798Deed03), refuse the agent's `execute` and `propose` in a Stock Token while a multiplier change is pending or for `CORPORATE_ACTION_COOLDOWN` (one day) after it takes effect, with `CorporateActionPending(token, uiMultiplier, newUIMultiplier, effectiveAt)`; the owner can still approve a proposal, and USDG, which has no multiplier, passes. `contracts/test/AgentAccountCorporateAction.t.sol` covers a pending split on both trade directions, the cooldown edge, `propose`, and the owner override; `AgentAccountRHCFork.t.sol` swaps the live testnet TSLA through the guard. The account card reads each token's ERC-8056 state at the same block as the rest of the mandate. Account [`0xFaaAa4d1...3b55`](https://explorer.testnet.chain.robinhood.com/address/0xFaaAa4d1ee944d317b10233505D8c57425C53b55) from this factory holds 4 USDG and the same operator agent ([`0xec2e5aba...0d3a`](https://explorer.testnet.chain.robinhood.com/tx/0xec2e5abacab4f45a15176bed75480c6fae0e0b5c94858501f58714729b5f0d3a)).
 
 A client admits the operator from the hosted app: open the account, step 4 "Admit an operator's agent" reads the CVM's quote for that account, asks the account's Stylus Verifier which key and measurement it proves, and offers "Approve this measurement" to the owner and "Admit the agent" to any wallet.
 
@@ -403,3 +428,7 @@ Web app: `cd web && npm install && npm run dev`. It reads every figure it shows 
 ## Team
 
 Built by pranjalcodesinw3.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Vendored Uniswap v4-core test sources under `contracts/test/vendor/` keep their own SPDX headers.
