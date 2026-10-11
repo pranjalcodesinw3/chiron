@@ -60,7 +60,7 @@ function FundsStep({ snap, refetch }: Ctx) {
     <li className="step" aria-labelledby="o-funds">
       <div className="step-body">
         <h3 id="o-funds" className="t-section">Deposit and withdraw</h3>
-        <p className="prose">Anyone may send tokens to the account. Only the owner can take them out, and withdrawals go to the owner&apos;s wallet.</p>
+        <p className="body-copy">Anyone may send tokens to the account. Only the owner can take them out, and withdrawals go to the owner&apos;s wallet.</p>
         <TokenPick tokens={snap.tokens} value={i} onChange={(n) => { setI(n); setAmount(''); tx.reset(); }} />
         <div className="fields">
           <div className="field">
@@ -159,7 +159,7 @@ function CapsStep({ snap, refetch }: Ctx) {
     <li className="step" aria-labelledby="o-caps">
       <div className="step-body">
         <h3 id="o-caps" className="t-section">Set caps</h3>
-        <p className="prose">Caps are in the units of the token that leaves the account. A token with trading not allowed cannot be bought or sold.</p>
+        <p className="body-copy">Caps are in the units of the token that leaves the account. A token with trading not allowed cannot be bought or sold.</p>
         <TokenPick tokens={snap.tokens} value={i} onChange={setI} />
         <CapsForm key={t.address} snap={snap} refetch={refetch} t={t} />
       </div>
@@ -181,7 +181,7 @@ function MeasurementStep({ snap, refetch }: Ctx) {
     <li className="step" aria-labelledby="o-meas">
       <div className="step-body">
         <h3 id="o-meas" className="t-section">Approve code</h3>
-        <p className="prose">
+        <p className="body-copy">
           An agent key is admitted only when its Intel TDX quote carries a measurement, the hash of the code it runs, that is on this
           list. Withdrawing the measurement the current agent runs revokes that agent at once.
         </p>
@@ -216,7 +216,7 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
     <li className="step" aria-labelledby="o-pend">
       <div className="step-body">
         <h3 id="o-pend" className="t-section">Approve or reject a pending trade</h3>
-        <p className="prose">
+        <p className="body-copy">
           When the agent proposes a trade above the approval threshold, the account holds it here with the model hash the agent&apos;s
           receipt recorded. Approving executes exactly that trade; rejecting closes it.
         </p>
@@ -224,7 +224,7 @@ function PendingStep({ snap, refetch, now }: Ctx & { now: bigint }) {
         {pending.length === 0 ? (
           <Spec subject={<span className="t-subject">Nothing waiting</span>}>
             <Fact label="proposals">{snap.proposalCount.toString()} proposed in total</Fact>
-            <Fact label="pending">0</Fact>
+            <Fact label="proposals waiting">0</Fact>
           </Spec>
         ) : (
           <div>
